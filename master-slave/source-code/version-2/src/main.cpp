@@ -2,15 +2,21 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
+#include <iomanip>
 #include <nlohmann/json.hpp>
+#include <mpi.h>
 
 #include "cli.hpp"
 #include "config.hpp"
+#include "parallel.hpp"
 #include "solutions.hpp"
 #include "logger.hpp"
 
 int main(int argc, char** argv)
 {
+    MPI_Init(&argc, &argv);
+
     CLI::App app{"Tabu Search for VRP with Drones"};
     app.require_subcommand(1);
 
@@ -77,6 +83,7 @@ int main(int argc, char** argv)
 
     run_cmd->add_option("--reset-after-factor",  args.run.reset_after_factor);
     run_cmd->add_option("--max-elite-size",       args.run.max_elite_size);
+    run_cmd->add_option("--parallel-rounds",      args.run.parallel_rounds);
     run_cmd->add_option("--penalty-exponent",     args.run.penalty_exponent);
     run_cmd->add_flag  ("--single-truck-route",   args.run.single_truck_route);
     run_cmd->add_flag  ("--single-drone-route",   args.run.single_drone_route);
@@ -95,6 +102,11 @@ int main(int argc, char** argv)
 
     CLI11_PARSE(app, argc, argv);
 
+    int rank = 0;
+    int world_size = 1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
     if (run_cmd->parsed()) {
         args.cmd = cli::CommandType::Run;
         if (trucks_count_cli) args.run.trucks_count = trucks_count_cli;
@@ -105,13 +117,38 @@ int main(int argc, char** argv)
         args.cmd = cli::CommandType::Evaluate;
     }
 
+    if (args.cmd == cli::CommandType::Evaluate && rank != 0) {
+        MPI_Finalize();
+        return 0;
+    }
+
     Solution solution;
 
     if (args.cmd == cli::CommandType::Run) {
         set_global_config(build_config(args.run));
-        Logger logger;
-        Solution root = Solution::initialize();
-        solution = Solution::tabu_search(root, logger);
+        if (world_size > 1) {
+            if (rank == 0) {
+                solution = parallel::run_master(world_size);
+            } else {
+                parallel::run_worker(rank);
+                MPI_Finalize();
+                return 0;
+            }
+        } else {
+            Logger logger;
+            auto t0 = std::chrono::steady_clock::now();
+            Solution root = Solution::initialize();
+            auto t1 = std::chrono::steady_clock::now();
+            solution = Solution::tabu_search(root, logger);
+            auto t2 = std::chrono::steady_clock::now();
+            double init_sec = std::chrono::duration<double>(t1 - t0).count();
+            double search_sec = std::chrono::duration<double>(t2 - t1).count();
+            double total_sec = std::chrono::duration<double>(t2 - t0).count();
+            std::cerr << std::fixed << std::setprecision(6)
+                      << "Timing (mode=sequential-in-version-2, unit=s): init="
+                      << init_sec << " search=" << search_sec
+                      << " total=" << total_sec << "\n";
+        }
     } else {
         // Evaluate
         set_global_config(build_config_from_json(args.evaluate.config));
@@ -125,5 +162,6 @@ int main(int argc, char** argv)
 
     std::cerr << "Result = " << solution.working_time << "\n";
     solution.verify();
+    MPI_Finalize();
     return 0;
 }

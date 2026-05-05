@@ -7,6 +7,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
+find_package(MPI REQUIRED)
+find_package(OpenMP)
+
 FetchContent_Declare(
     CLI11
     GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
@@ -23,6 +26,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 
 add_executable(tabu_search
     src/main.cpp
+    src/parallel.cpp
     src/config.cpp
     src/logger.cpp
     src/clusterize.cpp
@@ -32,7 +36,11 @@ add_executable(tabu_search
 )
 
 target_include_directories(tabu_search PRIVATE src)
-target_link_libraries(tabu_search PRIVATE CLI11::CLI11 nlohmann_json::nlohmann_json)
+target_link_libraries(tabu_search PRIVATE CLI11::CLI11 nlohmann_json::nlohmann_json MPI::MPI_CXX)
+
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(tabu_search PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 if(MSVC)
     target_compile_options(tabu_search PRIVATE /W3 /O2)

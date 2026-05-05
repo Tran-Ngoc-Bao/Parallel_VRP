@@ -162,6 +162,10 @@ void Logger::finalize(const Solution& result,
                       double post_optimization_elapsed)
 {
     const Config& cfg = global_config();
+    if (cfg.disable_logging) {
+        return;
+    }
+
     auto elapsed = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - _time_offset).count();
 

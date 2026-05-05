@@ -628,7 +628,7 @@ Solution Solution::destroy_and_repair(
 // -----------------------------------------------------------------------
 // tabu_search
 // -----------------------------------------------------------------------
-Solution Solution::tabu_search(Solution root, Logger& logger)
+Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* hooks)
 {
     const Config& cfg = global_config();
 
@@ -832,6 +832,25 @@ Solution Solution::tabu_search(Solution root, Logger& logger)
         } else {
             update_violations(current);
             logger.log(current, nb, tabu_lists[neighborhood_idx]);
+        }
+
+        if (hooks && hooks->sync_interval > 0 && iteration % hooks->sync_interval == 0) {
+            if (hooks->push_incumbent) {
+                hooks->push_incumbent(iteration, result);
+            }
+
+            if (hooks->pull_elite) {
+                Solution pulled;
+                if (hooks->pull_elite(iteration, pulled)) {
+                    record_new(pulled, iteration, adaptive.segment);
+                    if (pulled.feasible && pulled.cost() + TOLERANCE < current.cost()) {
+                        current = std::move(pulled);
+                        for (auto& tl : tabu_lists) {
+                            tl.clear();
+                        }
+                    }
+                }
+            }
         }
 
         // Advance neighborhood selection

@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <atomic>
+#include <functional>
 #include <nlohmann/json.hpp>
 #include "routes.hpp"
 
@@ -36,6 +37,12 @@ struct Solution {
     double fixed_time_violation   = 0;
     bool   feasible               = false;
 
+    struct SyncHooks {
+        std::size_t sync_interval = 1;
+        std::function<void(std::size_t iteration, const Solution& incumbent)> push_incumbent;
+        std::function<bool(std::size_t iteration, Solution& pulled_elite)> pull_elite;
+    };
+
     // Factory – computes all derived fields
     static Solution make(
         std::vector<std::vector<std::shared_ptr<TruckRoute>>> truck_routes,
@@ -54,7 +61,7 @@ struct Solution {
     Solution destroy_and_repair(const std::vector<std::vector<double>>& edge_records) const;
 
     // Main tabu search loop
-    static Solution tabu_search(Solution root, Logger& logger);
+    static Solution tabu_search(Solution root, Logger& logger, const SyncHooks* hooks = nullptr);
 
     // JSON serialization
     nlohmann::json to_json() const;

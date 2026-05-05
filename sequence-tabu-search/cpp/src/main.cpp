@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 
 #include "cli.hpp"
@@ -110,8 +112,18 @@ int main(int argc, char** argv)
     if (args.cmd == cli::CommandType::Run) {
         set_global_config(build_config(args.run));
         Logger logger;
+        auto t0 = std::chrono::steady_clock::now();
         Solution root = Solution::initialize();
+        auto t1 = std::chrono::steady_clock::now();
         solution = Solution::tabu_search(root, logger);
+        auto t2 = std::chrono::steady_clock::now();
+        double init_sec = std::chrono::duration<double>(t1 - t0).count();
+        double search_sec = std::chrono::duration<double>(t2 - t1).count();
+        double total_sec = std::chrono::duration<double>(t2 - t0).count();
+        std::cerr << std::fixed << std::setprecision(6)
+                  << "Timing (mode=sequential-reference, unit=s): init="
+                  << init_sec << " search=" << search_sec
+                  << " total=" << total_sec << "\n";
     } else {
         // Evaluate
         set_global_config(build_config_from_json(args.evaluate.config));

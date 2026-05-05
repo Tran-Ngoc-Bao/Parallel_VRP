@@ -298,6 +298,7 @@ Config build_config(const cli::RunArgs& args)
     cfg.fix_iteration             = args.fix_iteration;
     cfg.reset_after_factor        = args.reset_after_factor;
     cfg.max_elite_size            = args.max_elite_size;
+    cfg.parallel_rounds           = args.parallel_rounds;
     cfg.penalty_exponent          = args.penalty_exponent;
     cfg.single_truck_route        = args.single_truck_route;
     cfg.single_drone_route        = args.single_drone_route;
@@ -433,6 +434,7 @@ nlohmann::json config_to_json(const Config& cfg) {
         j["fix_iteration"]         = nullptr;
     j["reset_after_factor"]        = cfg.reset_after_factor;
     j["max_elite_size"]            = cfg.max_elite_size;
+    j["parallel_rounds"]           = cfg.parallel_rounds;
     j["penalty_exponent"]          = cfg.penalty_exponent;
     j["single_truck_route"]        = cfg.single_truck_route;
     j["single_drone_route"]        = cfg.single_drone_route;
@@ -572,6 +574,8 @@ Config build_config_from_json(const std::string& json_path)
         cfg.fix_iteration         = j.at("fix_iteration").get<std::size_t>();
     cfg.reset_after_factor        = j.at("reset_after_factor").get<double>();
     cfg.max_elite_size            = j.at("max_elite_size").get<std::size_t>();
+    if (j.contains("parallel_rounds"))
+        cfg.parallel_rounds       = j.at("parallel_rounds").get<std::size_t>();
     cfg.penalty_exponent          = j.at("penalty_exponent").get<double>();
     cfg.single_truck_route        = j.at("single_truck_route").get<bool>();
     cfg.single_drone_route        = j.at("single_drone_route").get<bool>();
