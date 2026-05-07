@@ -4,9 +4,6 @@
 #include <limits>
 #include <algorithm>
 #include <stdexcept>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 // -----------------------------------------------------------------------
 // Helper: find the vehicle with the largest working time
@@ -435,39 +432,8 @@ bool search(
     double aspiration_cost,
     Solution& out_result)
 {
-    Solution intra_sol = solution;
-    Solution inter_sol = solution;
-    std::vector<size_t> intra_tabu;
-    std::vector<size_t> inter_tabu;
-
-#ifdef _OPENMP
-#pragma omp parallel sections default(none) shared(n, solution, tabu_list, aspiration_cost, intra_sol, inter_sol, intra_tabu, inter_tabu)
-    {
-#pragma omp section
-        {
-            auto intra_pair = intra_route(n, solution, tabu_list, aspiration_cost);
-            intra_sol = std::move(intra_pair.first);
-            intra_tabu = std::move(intra_pair.second);
-        }
-
-#pragma omp section
-        {
-            auto inter_pair = inter_route(n, solution, tabu_list, aspiration_cost);
-            inter_sol = std::move(inter_pair.first);
-            inter_tabu = std::move(inter_pair.second);
-        }
-    }
-#else
-    {
-        auto intra_pair = intra_route(n, solution, tabu_list, aspiration_cost);
-        intra_sol = std::move(intra_pair.first);
-        intra_tabu = std::move(intra_pair.second);
-
-        auto inter_pair = inter_route(n, solution, tabu_list, aspiration_cost);
-        inter_sol = std::move(inter_pair.first);
-        inter_tabu = std::move(inter_pair.second);
-    }
-#endif
+    auto [intra_sol, intra_tabu] = intra_route(n, solution, tabu_list, aspiration_cost);
+    auto [inter_sol, inter_tabu] = inter_route(n, solution, tabu_list, aspiration_cost);
 
     Solution result;
     std::vector<size_t> tabu;
