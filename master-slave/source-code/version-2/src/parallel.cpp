@@ -9,7 +9,13 @@
 #include <iostream>
 #include <string>
 #include <thread>
-#include <vector>
+#include <random>
+#include <ctime>
+#include <map>
+#include <limits>
+#include <unordered_map>
+#include <unordered_set>
+#include <cstdint>
 
 #include <nlohmann/json.hpp>
 
@@ -25,6 +31,7 @@ constexpr int TAG_RESULT = 102;
 constexpr int TAG_PROGRESS = 103;
 constexpr int TAG_ELITE_UPDATE = 104;
 constexpr double kTolerance = 0.001;
+constexpr std::size_t kEliteKeepCount = 10;
 
 struct Job {
     bool stop = false;
@@ -125,6 +132,134 @@ std::size_t derive_segment_iterations(const Config& cfg, int world_size)
     return std::max<std::size_t>(1000, base / workers);
 }
 
+static std::size_t compute_edge_difference(const Solution& a, const Solution& b)
+{
+    auto pack_edge = [](std::size_t u, std::size_t v) -> uint64_t {
+        if (u > v) std::swap(u, v);
+        return (static_cast<uint64_t>(u) << 32) | static_cast<uint64_t>(v);
+    };
+
+    auto pack_typed_edge = [&](std::size_t u, std::size_t v, int vehicle_type) -> uint64_t {
+        return (static_cast<uint64_t>(vehicle_type & 1) << 63) | pack_edge(u, v);
+    };
+
+    auto collect_edge_counts = [&](const Solution& sol, std::unordered_map<uint64_t, std::size_t>& out) {
+        for (const auto& truck_vehicle : sol.truck_routes) {
+            for (const auto& route : truck_vehicle) {
+                const auto& customers = route->data().customers;
+                if (customers.size() < 2) continue;
+                for (std::size_t i = 0; i < customers.size(); ++i) {
+                    std::size_t u = customers[i];
+                    std::size_t v = customers[(i + 1) % customers.size()];
+                    out[pack_typed_edge(u, v, 0)] += 1;
+                }
+            }
+        }
+        for (const auto& drone_vehicle : sol.drone_routes) {
+            for (const auto& route : drone_vehicle) {
+                const auto& customers = route->data().customers;
+                if (customers.size() < 2) continue;
+                for (std::size_t i = 0; i < customers.size(); ++i) {
+                    std::size_t u = customers[i];
+                    std::size_t v = customers[(i + 1) % customers.size()];
+                    out[pack_typed_edge(u, v, 1)] += 1;
+                }
+            }
+        }
+    };
+
+    std::unordered_map<uint64_t, std::size_t> ea, eb;
+    collect_edge_counts(a, ea);
+    collect_edge_counts(b, eb);
+
+    std::unordered_set<uint64_t> keys;
+    for (const auto& p : ea) keys.insert(p.first);
+    for (const auto& p : eb) keys.insert(p.first);
+
+    std::size_t diff = 0;
+    for (auto key : keys) {
+        std::size_t ca = 0;
+        std::size_t cb = 0;
+        auto ita = ea.find(key);
+        if (ita != ea.end()) ca = ita->second;
+        auto itb = eb.find(key);
+        if (itb != eb.end()) cb = itb->second;
+        diff += (ca > cb) ? (ca - cb) : (cb - ca);
+    }
+
+    return diff;
+}
+
+struct ElitePool {
+    explicit ElitePool(std::size_t keep_count) : keep_count(keep_count) {}
+
+    void consider(Solution candidate, int source_worker)
+    {
+        if (!candidate.feasible) {
+            return;
+        }
+
+        if (solutions.size() < keep_count) {
+            solutions.push_back({std::move(candidate), source_worker});
+        } else {
+            std::size_t most_similar_idx = 0;
+            std::size_t min_diff = std::numeric_limits<std::size_t>::max();
+            for (std::size_t i = 0; i < solutions.size(); ++i) {
+                std::size_t diff = compute_edge_difference(candidate, solutions[i].sol);
+                if (diff < min_diff) {
+                    min_diff = diff;
+                    most_similar_idx = i;
+                }
+            }
+
+            solutions[most_similar_idx] = {std::move(candidate), source_worker};
+        }
+    }
+
+    bool empty() const
+    {
+        return solutions.empty();
+    }
+
+    const Solution& best() const
+    {
+        auto it = std::min_element(solutions.begin(), solutions.end(),
+                                   [](const Entry& a, const Entry& b) {
+                                       return a.sol.cost() < b.sol.cost();
+                                   });
+        return it->sol;
+    }
+
+    const Solution& pick_for_broadcast(int excluded_worker, std::mt19937& rng) const
+    {
+        std::vector<std::size_t> candidates;
+        for (std::size_t i = 0; i < solutions.size(); ++i) {
+            if (solutions[i].source_worker != excluded_worker) {
+                candidates.push_back(i);
+            }
+        }
+        if (candidates.empty()) {
+            return solutions.front().sol;
+        }
+        std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
+        return solutions[candidates[dist(rng)]].sol;
+    }
+
+    const Solution& pick_for_dispatch(int excluded_worker, std::mt19937& rng) const
+    {
+        return pick_for_broadcast(excluded_worker, rng);
+    }
+
+private:
+    struct Entry {
+        Solution sol;
+        int source_worker;
+    };
+
+    std::size_t keep_count;
+    std::vector<Entry> solutions;
+};
+
 } // namespace
 
 Solution run_master(int world_size)
@@ -134,14 +269,18 @@ Solution run_master(int world_size)
     const std::size_t rounds = std::max<std::size_t>(1, base_cfg.parallel_rounds);
     const std::size_t segment_iterations = derive_segment_iterations(base_cfg, world_size);
 
-    Solution best = Solution::initialize();
+    Solution best_solution = Solution::initialize();
+    ElitePool elite_pool(kEliteKeepCount);
+    elite_pool.consider(best_solution, 0);
     const auto t1 = std::chrono::steady_clock::now();
     std::size_t next_seed = base_cfg.seed ? *base_cfg.seed : 1;
     std::vector<std::size_t> remaining_rounds(static_cast<std::size_t>(world_size), 0);
     std::vector<bool> worker_active(static_cast<std::size_t>(world_size), false);
     std::size_t active_workers = 0;
+    std::mt19937 rng(static_cast<unsigned>(std::time(nullptr)));
 
-    auto dispatch = [&](int worker_rank, const Solution& root, std::size_t round) {
+    auto dispatch = [&](int worker_rank, std::size_t round) {
+        const Solution& root = elite_pool.pick_for_dispatch(worker_rank, rng);
         Job job;
         job.has_root = true;
         job.root_json = root.to_json().dump();
@@ -154,6 +293,9 @@ Solution run_master(int world_size)
     };
 
     auto broadcast_elite = [&](int except_rank) {
+        if (elite_pool.empty()) {
+            return;
+        }
         for (int worker_rank = 1; worker_rank < world_size; ++worker_rank) {
             if (worker_rank == except_rank) {
                 continue;
@@ -161,12 +303,13 @@ Solution run_master(int world_size)
             if (!worker_active[static_cast<std::size_t>(worker_rank)]) {
                 continue;
             }
-            send_solution(worker_rank, TAG_ELITE_UPDATE, best);
+            const Solution& elite_to_send = elite_pool.pick_for_broadcast(worker_rank, rng);
+            send_solution(worker_rank, TAG_ELITE_UPDATE, elite_to_send);
         }
     };
 
     for (int worker_rank = 1; worker_rank < world_size; ++worker_rank) {
-        dispatch(worker_rank, best, 0);
+        dispatch(worker_rank, 0);
         ++active_workers;
     }
 
@@ -185,8 +328,11 @@ Solution run_master(int world_size)
 
             processed = true;
             Solution progress = recv_solution(status.MPI_SOURCE, TAG_PROGRESS);
-            if (progress.feasible && progress.cost() + kTolerance < best.cost()) {
-                best = std::move(progress);
+            if (progress.feasible) {
+                if (progress.cost() < best_solution.cost()) {
+                    best_solution = progress;
+                }
+                elite_pool.consider(std::move(progress), status.MPI_SOURCE);
                 improved = true;
                 improve_source = status.MPI_SOURCE;
             }
@@ -209,14 +355,17 @@ Solution run_master(int world_size)
             processed = true;
             const int worker_rank = status.MPI_SOURCE;
             Solution result = recv_result(worker_rank);
-            if (result.feasible && result.cost() + kTolerance < best.cost()) {
-                best = result;
+            if (result.feasible) {
+                if (result.cost() < best_solution.cost()) {
+                    best_solution = result;
+                }
+                elite_pool.consider(std::move(result), worker_rank);
                 improved = true;
                 improve_source = worker_rank;
             }
 
             if (remaining_rounds[static_cast<std::size_t>(worker_rank)] > 0) {
-                dispatch(worker_rank, best, rounds - remaining_rounds[static_cast<std::size_t>(worker_rank)]);
+                dispatch(worker_rank, rounds - remaining_rounds[static_cast<std::size_t>(worker_rank)]);
             } else {
                 Job stop_job;
                 stop_job.stop = true;
@@ -245,8 +394,8 @@ Solution run_master(int world_size)
               << " total=" << total_sec << "\n";
 
     Logger logger;
-    logger.finalize(best, 0, 0, 0, 0, 0, 0.0, 0.0);
-    return best;
+    logger.finalize(best_solution, 0, 0, 0, 0, 0, 0.0, 0.0);
+    return best_solution;
 }
 
 void run_worker(int rank)
