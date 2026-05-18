@@ -37,9 +37,8 @@ struct Solution {
     double fixed_time_violation   = 0;
     bool   feasible               = false;
 
-    struct SyncHooks {
-        std::size_t sync_interval = 1;
-        std::function<void(std::size_t iteration, const Solution& incumbent)> push_incumbent;
+    struct EliteHooks {
+        std::function<void(std::size_t iteration, const Solution& elite)> push_elite;
         std::function<bool(std::size_t iteration, Solution& pulled_elite)> pull_elite;
     };
 
@@ -61,7 +60,7 @@ struct Solution {
     Solution destroy_and_repair(const std::vector<std::vector<double>>& edge_records) const;
 
     // Main tabu search loop
-    static Solution tabu_search(Solution root, Logger& logger, const SyncHooks* hooks = nullptr);
+    static Solution tabu_search(Solution root, Logger& logger, const EliteHooks* hooks = nullptr);
 
     // JSON serialization
     nlohmann::json to_json() const;

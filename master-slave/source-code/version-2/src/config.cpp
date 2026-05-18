@@ -287,7 +287,8 @@ Config build_config(const cli::RunArgs& args)
     cfg.tabu_size_factor          = args.tabu_size_factor;
     cfg.adaptive_iterations       = args.adaptive_iterations;
     cfg.adaptive_fixed_iterations = args.adaptive_fixed_iterations;
-    cfg.adaptive_segments         = args.adaptive_segments;
+    cfg.adaptive_pull_elite_segments = args.adaptive_pull_elite_segments;
+    cfg.adaptive_pull_elite_limit    = args.adaptive_pull_elite_limit;
     cfg.adaptive_fixed_segments   = args.adaptive_fixed_segments;
     cfg.ejection_chain_iterations = args.ejection_chain_iterations;
     cfg.destroy_rate              = args.destroy_rate;
@@ -298,7 +299,6 @@ Config build_config(const cli::RunArgs& args)
     cfg.fix_iteration             = args.fix_iteration;
     cfg.reset_after_factor        = args.reset_after_factor;
     cfg.max_elite_size            = args.max_elite_size;
-    cfg.parallel_rounds           = args.parallel_rounds;
     cfg.penalty_exponent          = args.penalty_exponent;
     cfg.single_truck_route        = args.single_truck_route;
     cfg.single_drone_route        = args.single_drone_route;
@@ -420,7 +420,8 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["tabu_size_factor"]          = cfg.tabu_size_factor;
     j["adaptive_iterations"]       = cfg.adaptive_iterations;
     j["adaptive_fixed_iterations"] = cfg.adaptive_fixed_iterations;
-    j["adaptive_segments"]         = cfg.adaptive_segments;
+    j["adaptive_pull_elite_segments"] = cfg.adaptive_pull_elite_segments;
+    j["adaptive_pull_elite_limit"]    = cfg.adaptive_pull_elite_limit;
     j["adaptive_fixed_segments"]   = cfg.adaptive_fixed_segments;
     j["ejection_chain_iterations"] = cfg.ejection_chain_iterations;
     j["destroy_rate"]              = cfg.destroy_rate;
@@ -434,7 +435,6 @@ nlohmann::json config_to_json(const Config& cfg) {
         j["fix_iteration"]         = nullptr;
     j["reset_after_factor"]        = cfg.reset_after_factor;
     j["max_elite_size"]            = cfg.max_elite_size;
-    j["parallel_rounds"]           = cfg.parallel_rounds;
     j["penalty_exponent"]          = cfg.penalty_exponent;
     j["single_truck_route"]        = cfg.single_truck_route;
     j["single_drone_route"]        = cfg.single_drone_route;
@@ -562,7 +562,12 @@ Config build_config_from_json(const std::string& json_path)
     cfg.tabu_size_factor          = j.at("tabu_size_factor").get<double>();
     cfg.adaptive_iterations       = j.at("adaptive_iterations").get<std::size_t>();
     cfg.adaptive_fixed_iterations = j.at("adaptive_fixed_iterations").get<bool>();
-    cfg.adaptive_segments         = j.at("adaptive_segments").get<std::size_t>();
+    if (j.contains("adaptive_pull_elite_segments"))
+        cfg.adaptive_pull_elite_segments = j.at("adaptive_pull_elite_segments").get<std::size_t>();
+    else
+        cfg.adaptive_pull_elite_segments = j.at("adaptive_segments").get<std::size_t>();
+    if (j.contains("adaptive_pull_elite_limit"))
+        cfg.adaptive_pull_elite_limit = j.at("adaptive_pull_elite_limit").get<std::size_t>();
     cfg.adaptive_fixed_segments   = j.at("adaptive_fixed_segments").get<bool>();
     cfg.ejection_chain_iterations = j.at("ejection_chain_iterations").get<std::size_t>();
     cfg.destroy_rate              = j.at("destroy_rate").get<double>();
@@ -574,8 +579,6 @@ Config build_config_from_json(const std::string& json_path)
         cfg.fix_iteration         = j.at("fix_iteration").get<std::size_t>();
     cfg.reset_after_factor        = j.at("reset_after_factor").get<double>();
     cfg.max_elite_size            = j.at("max_elite_size").get<std::size_t>();
-    if (j.contains("parallel_rounds"))
-        cfg.parallel_rounds       = j.at("parallel_rounds").get<std::size_t>();
     cfg.penalty_exponent          = j.at("penalty_exponent").get<double>();
     cfg.single_truck_route        = j.at("single_truck_route").get<bool>();
     cfg.single_drone_route        = j.at("single_drone_route").get<bool>();

@@ -41,7 +41,8 @@ int main(int argc, char** argv)
     run_cmd->add_option("--tabu-size-factor",          args.run.tabu_size_factor);
     run_cmd->add_option("--adaptive-iterations",       args.run.adaptive_iterations);
     run_cmd->add_flag  ("--adaptive-fixed-iterations", args.run.adaptive_fixed_iterations);
-    run_cmd->add_option("--adaptive-segments",         args.run.adaptive_segments);
+    run_cmd->add_option("--adaptive-pull-elite-segments", args.run.adaptive_pull_elite_segments);
+    run_cmd->add_option("--adaptive-pull-elite-limit",    args.run.adaptive_pull_elite_limit);
     run_cmd->add_flag  ("--adaptive-fixed-segments",   args.run.adaptive_fixed_segments);
     run_cmd->add_option("--ejection-chain-iterations", args.run.ejection_chain_iterations);
     run_cmd->add_option("--destroy-rate",              args.run.destroy_rate);
@@ -83,7 +84,6 @@ int main(int argc, char** argv)
 
     run_cmd->add_option("--reset-after-factor",  args.run.reset_after_factor);
     run_cmd->add_option("--max-elite-size",       args.run.max_elite_size);
-    run_cmd->add_option("--parallel-rounds",      args.run.parallel_rounds);
     run_cmd->add_option("--penalty-exponent",     args.run.penalty_exponent);
     run_cmd->add_flag  ("--single-truck-route",   args.run.single_truck_route);
     run_cmd->add_flag  ("--single-drone-route",   args.run.single_drone_route);

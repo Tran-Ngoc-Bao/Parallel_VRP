@@ -46,7 +46,8 @@ struct RunArgs {
     double        tabu_size_factor           = 0.75;
     std::size_t   adaptive_iterations        = 60;
     bool          adaptive_fixed_iterations  = false;
-    std::size_t   adaptive_segments          = 7;
+    std::size_t   adaptive_pull_elite_segments = 1;
+    std::size_t   adaptive_pull_elite_limit    = 1;
     bool          adaptive_fixed_segments    = false;
     std::size_t   ejection_chain_iterations  = 0;
     double        destroy_rate               = 0.1;
@@ -61,7 +62,6 @@ struct RunArgs {
     std::optional<std::size_t> fix_iteration = std::nullopt;
     double        reset_after_factor         = 125.0;
     std::size_t   max_elite_size             = 0;
-    std::size_t   parallel_rounds            = 4;
     double        penalty_exponent           = 0.5;
     bool          single_truck_route         = false;
     bool          single_drone_route         = false;

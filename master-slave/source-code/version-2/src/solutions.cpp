@@ -628,7 +628,7 @@ Solution Solution::destroy_and_repair(
 // -----------------------------------------------------------------------
 // tabu_search
 // -----------------------------------------------------------------------
-Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* hooks)
+Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* hooks)
 {
     const Config& cfg = global_config();
 
@@ -655,6 +655,7 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* h
         size_t segment             = 0;
         size_t segment_reset       = 0;
         size_t last_improved_seg   = 0;
+        size_t pull_count          = 0;
         std::vector<double> scores;
         std::vector<double> weights;
         std::vector<uint32_t> occurences;
@@ -710,6 +711,10 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* h
                 }
                 elite_set.push_back(nb);
             }
+
+            if (hooks && hooks->push_elite) {
+                hooks->push_elite(iteration, result);
+            }
         }
     };
 
@@ -719,7 +724,6 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* h
         penalty::update(2, s.waiting_time_violation);
         penalty::update(3, s.fixed_time_violation);
     };
-
     size_t max_iter = cfg.fix_iteration
         ? *cfg.fix_iteration
         : std::numeric_limits<size_t>::max() / 2;
@@ -728,12 +732,12 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* h
         if (cfg.verbose) {
             auto segments_before_reset = [&]() -> size_t {
                 if (cfg.adaptive_fixed_segments)
-                    return adaptive.segment > adaptive.segment_reset + cfg.adaptive_segments
-                        ? adaptive.segment - (adaptive.segment_reset + cfg.adaptive_segments)
+                    return adaptive.segment > adaptive.segment_reset + cfg.adaptive_pull_elite_segments
+                        ? adaptive.segment - (adaptive.segment_reset + cfg.adaptive_pull_elite_segments)
                         : 0;
-                return cfg.adaptive_segments >
+                return cfg.adaptive_pull_elite_segments >
                     (adaptive.segment - std::max(adaptive.segment_reset, adaptive.last_improved_seg))
-                    ? cfg.adaptive_segments -
+                    ? cfg.adaptive_pull_elite_segments -
                       (adaptive.segment - std::max(adaptive.segment_reset, adaptive.last_improved_seg))
                     : 0;
             };
@@ -788,68 +792,95 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const SyncHooks* h
 
         if (eos) ++adaptive.segment;
 
-        // Check reset condition
-        bool do_reset = false;
+        // Check reset / elite pull condition
         if (cfg.strategy == cli::Strategy::Adaptive) {
+            bool do_pull_elite = false;
             if (cfg.adaptive_fixed_segments)
-                do_reset = adaptive.segment >= adaptive.segment_reset + cfg.adaptive_segments;
+                do_pull_elite = adaptive.segment >= adaptive.segment_reset + cfg.adaptive_pull_elite_segments;
             else
-                do_reset = adaptive.segment >=
+                do_pull_elite = adaptive.segment >=
                     std::max(adaptive.segment_reset, adaptive.last_improved_seg)
-                    + cfg.adaptive_segments;
-        } else {
-            do_reset = iteration != last_improved
-                    && (iteration - last_improved) % reset_after == 0;
-        }
+                    + cfg.adaptive_pull_elite_segments;
 
-        if (do_reset) {
-            adaptive.segment_reset = adaptive.segment;
-            adaptive.weights.assign(NUM_NEIGHBORHOODS, 1.0);
-
-            if (elite_set.empty()) break;
-
-            std::uniform_int_distribution<size_t> pick(0, elite_set.size()-1);
-            size_t i = pick(rng);
-            Solution picked = swap_remove_elem(elite_set, i);
-            current = picked.destroy_and_repair(edge_records);
-            for (auto& tl : tabu_lists) tl.clear();
-        }
-
-        if (do_reset && cfg.ejection_chain_iterations > 0) {
-            std::vector<std::vector<size_t>> ec_tabu;
-            for (size_t ei = 0; ei < cfg.ejection_chain_iterations; ++ei) {
-                Solution ec_neighbor;
-                bool ec_found = neighborhoods::search(
-                    Neighborhood::EjectionChain, current, ec_tabu,
-                    cfg.ejection_chain_iterations + 1, result.cost(), ec_neighbor);
-                if (ec_found) {
-                    current = ec_neighbor;
-                    record_new(current, iteration, adaptive.segment);
-                }
-                update_violations(current);
-                logger.log(current, Neighborhood::EjectionChain, ec_tabu);
-            }
-        } else {
-            update_violations(current);
-            logger.log(current, nb, tabu_lists[neighborhood_idx]);
-        }
-
-        if (hooks && hooks->sync_interval > 0 && iteration % hooks->sync_interval == 0) {
-            if (hooks->push_incumbent) {
-                hooks->push_incumbent(iteration, result);
-            }
-
-            if (hooks->pull_elite) {
-                Solution pulled;
-                if (hooks->pull_elite(iteration, pulled)) {
-                    record_new(pulled, iteration, adaptive.segment);
-                    if (pulled.feasible && pulled.cost() + TOLERANCE < current.cost()) {
-                        current = std::move(pulled);
+            if (do_pull_elite) {
+                bool pulled = false;
+                if (hooks && hooks->pull_elite) {
+                    Solution pulled_elite;
+                    pulled = hooks->pull_elite(iteration, pulled_elite);
+                    if (pulled) {
+                        record_new(pulled_elite, iteration, adaptive.segment);
+                        current = std::move(pulled_elite);
                         for (auto& tl : tabu_lists) {
                             tl.clear();
                         }
                     }
                 }
+
+                if (pulled) {
+                    adaptive.segment_reset = adaptive.segment;
+                    adaptive.last_improved_seg = adaptive.segment;
+                    adaptive.weights.assign(NUM_NEIGHBORHOODS, 1.0);
+                    std::fill(adaptive.scores.begin(), adaptive.scores.end(), 0.0);
+                    std::fill(adaptive.occurences.begin(), adaptive.occurences.end(), 0);
+                    ++adaptive.pull_count;
+
+                    if (adaptive.pull_count >= std::max<std::size_t>(1, cfg.adaptive_pull_elite_limit)) {
+                        break;
+                    }
+                }
+            }
+
+            if (cfg.ejection_chain_iterations > 0 && do_pull_elite) {
+                std::vector<std::vector<size_t>> ec_tabu;
+                for (size_t ei = 0; ei < cfg.ejection_chain_iterations; ++ei) {
+                    Solution ec_neighbor;
+                    bool ec_found = neighborhoods::search(
+                        Neighborhood::EjectionChain, current, ec_tabu,
+                        cfg.ejection_chain_iterations + 1, result.cost(), ec_neighbor);
+                    if (ec_found) {
+                        current = ec_neighbor;
+                        record_new(current, iteration, adaptive.segment);
+                    }
+                    update_violations(current);
+                    logger.log(current, Neighborhood::EjectionChain, ec_tabu);
+                }
+            } else {
+                update_violations(current);
+            }
+        } else {
+            bool do_reset = iteration != last_improved
+                        && (iteration - last_improved) % reset_after == 0;
+
+            if (do_reset) {
+                adaptive.segment_reset = adaptive.segment;
+                adaptive.weights.assign(NUM_NEIGHBORHOODS, 1.0);
+
+                if (elite_set.empty()) break;
+
+                std::uniform_int_distribution<size_t> pick(0, elite_set.size()-1);
+                size_t i = pick(rng);
+                Solution picked = swap_remove_elem(elite_set, i);
+                current = picked.destroy_and_repair(edge_records);
+                for (auto& tl : tabu_lists) tl.clear();
+            }
+
+            if (do_reset && cfg.ejection_chain_iterations > 0) {
+                std::vector<std::vector<size_t>> ec_tabu;
+                for (size_t ei = 0; ei < cfg.ejection_chain_iterations; ++ei) {
+                    Solution ec_neighbor;
+                    bool ec_found = neighborhoods::search(
+                        Neighborhood::EjectionChain, current, ec_tabu,
+                        cfg.ejection_chain_iterations + 1, result.cost(), ec_neighbor);
+                    if (ec_found) {
+                        current = ec_neighbor;
+                        record_new(current, iteration, adaptive.segment);
+                    }
+                    update_violations(current);
+                    logger.log(current, Neighborhood::EjectionChain, ec_tabu);
+                }
+            } else {
+                update_violations(current);
+                logger.log(current, nb, tabu_lists[neighborhood_idx]);
             }
         }
 
