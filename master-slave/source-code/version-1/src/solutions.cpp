@@ -160,11 +160,10 @@ common::Elite apply_move10(
     int best_new_pos = 0;
     double best_cost_delta = 0.0;
     
-    #pragma omp parallel for collapse(2) reduction(min:best_cost_delta) shared(best_move_pos, best_new_pos)
     for (int move_pos = 0; move_pos < (int) route_seq.size(); ++move_pos) {
         for (int new_pos = 0; new_pos <= (int) route_seq.size(); ++new_pos) {
             if (move_pos == new_pos || (move_pos + 1 == new_pos)) continue;
-            
+
             double delta = calculate_relocate_cost(
                 cfg,
                 element.type,
@@ -175,14 +174,11 @@ common::Elite apply_move10(
                 base_element_time,
                 old_trip_time,
                 base_makespan);
-            
-            #pragma omp critical
-            {
-                if (delta < best_cost_delta) {
-                    best_cost_delta = delta;
-                    best_move_pos = move_pos;
-                    best_new_pos = new_pos;
-                }
+
+            if (delta < best_cost_delta) {
+                best_cost_delta = delta;
+                best_move_pos = move_pos;
+                best_new_pos = new_pos;
             }
         }
     }
@@ -237,11 +233,10 @@ common::Elite apply_move11(
     int best_new_pos = 0;
     double best_cost_delta = 0.0;
     
-    #pragma omp parallel for collapse(2) reduction(min:best_cost_delta) shared(best_move_pos, best_new_pos)
     for (int move_pos = 0; move_pos < (int) route_seq.size(); ++move_pos) {
         for (int new_pos = 0; new_pos <= (int) route_seq.size(); ++new_pos) {
             if (move_pos == new_pos || (move_pos + 1 == new_pos)) continue;
-            
+
             double delta = calculate_relocate_cost(
                 cfg,
                 element.type,
@@ -252,14 +247,11 @@ common::Elite apply_move11(
                 base_element_time,
                 old_trip_time,
                 base_makespan);
-            
-            #pragma omp critical
-            {
-                if (delta < best_cost_delta) {
-                    best_cost_delta = delta;
-                    best_move_pos = move_pos;
-                    best_new_pos = new_pos;
-                }
+
+            if (delta < best_cost_delta) {
+                best_cost_delta = delta;
+                best_move_pos = move_pos;
+                best_new_pos = new_pos;
             }
         }
     }
@@ -313,15 +305,14 @@ common::Elite apply_move20(
     int best_new_pos = 0;
     double best_cost_delta = 0.0;
     
-    #pragma omp parallel for collapse(2) reduction(min:best_cost_delta) shared(best_move_i, best_new_pos)
     for (int i = 0; i < (int) route_seq.size() - 1; ++i) {
         for (int j = 0; j < (int) route_seq.size(); ++j) {
             if (i == j || (i + 1 == j)) continue;
-            
+
             std::vector<int> new_route = route_seq;
             int cus1 = new_route[i];
             int cus2 = new_route[i + 1];
-            
+
             new_route.erase(new_route.begin() + i, new_route.begin() + i + 2);
             int final_j = (j > i) ? j - 2 : j;
             if (final_j >= 0 && final_j <= (int) new_route.size()) {
@@ -329,19 +320,16 @@ common::Elite apply_move20(
             } else {
                 continue;
             }
-            
+
             const double new_trip_time = compute_route_time(cfg, element.type, new_route);
             const double new_element_time = base_element_time - old_trip_time + new_trip_time;
             const double candidate_makespan = std::max(other_max, new_element_time);
             const double delta = candidate_makespan - base_makespan;
-            
-            #pragma omp critical
-            {
-                if (delta < best_cost_delta) {
-                    best_cost_delta = delta;
-                    best_move_i = i;
-                    best_new_pos = j;
-                }
+
+            if (delta < best_cost_delta) {
+                best_cost_delta = delta;
+                best_move_i = i;
+                best_new_pos = j;
             }
         }
     }
@@ -395,15 +383,14 @@ common::Elite apply_move21(
     int best_new_pos = 0;
     double best_cost_delta = 0.0;
     
-    #pragma omp parallel for collapse(2) reduction(min:best_cost_delta) shared(best_move_i, best_new_pos)
     for (int i = 0; i < (int) route_seq.size() - 1; ++i) {
         for (int j = 0; j < (int) route_seq.size(); ++j) {
             if (i == j || (i + 1 == j)) continue;
-            
+
             std::vector<int> new_route = route_seq;
             int cus1 = new_route[i];
             int cus2 = new_route[i + 1];
-            
+
             new_route.erase(new_route.begin() + i, new_route.begin() + i + 2);
             int final_j = (j > i) ? j - 2 : j;
             if (final_j >= 0 && final_j <= (int) new_route.size()) {
@@ -411,19 +398,16 @@ common::Elite apply_move21(
             } else {
                 continue;
             }
-            
+
             const double new_trip_time = compute_route_time(cfg, element.type, new_route);
             const double new_element_time = base_element_time - old_trip_time + new_trip_time;
             const double candidate_makespan = std::max(other_max, new_element_time);
             const double delta = candidate_makespan - base_makespan;
-            
-            #pragma omp critical
-            {
-                if (delta < best_cost_delta) {
-                    best_cost_delta = delta;
-                    best_move_i = i;
-                    best_new_pos = j;
-                }
+
+            if (delta < best_cost_delta) {
+                best_cost_delta = delta;
+                best_move_i = i;
+                best_new_pos = j;
             }
         }
     }
@@ -559,25 +543,21 @@ common::Elite apply_twoopt(
     int best_j = 1;
     double best_cost_delta = 0.0;
     
-    #pragma omp parallel for collapse(2) reduction(min:best_cost_delta) shared(best_i, best_j)
     for (int i = 0; i < (int) route_seq.size() - 1; ++i) {
         for (int j = i + 1; j < (int) route_seq.size(); ++j) {
             // Calculate cost delta for reversing segment [i, j]
             std::vector<int> new_route = route_seq;
             std::reverse(new_route.begin() + i, new_route.begin() + j + 1);
-            
+
             const double new_trip_time = compute_route_time(cfg, element.type, new_route);
             const double new_element_time = base_element_time - old_trip_time + new_trip_time;
             const double candidate_makespan = std::max(other_max, new_element_time);
             const double delta = candidate_makespan - base_makespan;
-            
-            #pragma omp critical
-            {
-                if (delta < best_cost_delta) {
-                    best_cost_delta = delta;
-                    best_i = i;
-                    best_j = j;
-                }
+
+            if (delta < best_cost_delta) {
+                best_cost_delta = delta;
+                best_i = i;
+                best_j = j;
             }
         }
     }

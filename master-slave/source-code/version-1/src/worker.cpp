@@ -16,8 +16,8 @@
 #include <vector>
 #include <mpi.h>
 
-const int PULL_ELITE_NO_IMPROVE_INTERVAL = 50;
-const int STOP_AFTER_PULLS = 10;
+const int PULL_ELITE_NO_IMPROVE_INTERVAL = 100;
+const int STOP_AFTER_PULLS = 30;
 
 static std::mt19937_64 make_rng(const Config &cfg) {
     if (cfg.seed) {
@@ -239,7 +239,8 @@ static common::Elite build_initial_elite(const Config& cfg) {
         std::shuffle(cluster.begin(), cluster.end(), rng);
         for (std::size_t c : cluster) {
             if (truckable[c]) {
-                queue.push({0.0, ci, 0, cluster.front(), true});
+                std::size_t vehicle = (cfg.trucks_count > 0) ? (ci % cfg.trucks_count) : 0;
+                queue.push({0.0, vehicle, 0, cluster.front(), true});
                 break;
             }
         }
@@ -277,7 +278,9 @@ static common::Elite build_initial_elite(const Config& cfg) {
             }
         }
         if (best_c != 0) {
-            double wt = build_local_solution(cfg, truck_routes, drone_routes).truck_working_time[vehicle];
+            auto metrics = build_local_solution(cfg, truck_routes, drone_routes);
+            std::size_t vv = (metrics.truck_working_time.empty() ? 0 : std::min(vehicle, metrics.truck_working_time.size() - 1));
+            double wt = metrics.truck_working_time[vv];
             State next_state{wt, vehicle, parent, best_c, true};
             queue.push(next_state);
         }
@@ -302,7 +305,9 @@ static common::Elite build_initial_elite(const Config& cfg) {
             }
         }
         if (best_c != 0) {
-            double wt = build_local_solution(cfg, truck_routes, drone_routes).drone_working_time[vehicle];
+            auto metrics = build_local_solution(cfg, truck_routes, drone_routes);
+            std::size_t vv = (metrics.drone_working_time.empty() ? 0 : std::min(vehicle, metrics.drone_working_time.size() - 1));
+            double wt = metrics.drone_working_time[vv];
             State next_state{wt, vehicle, parent, best_c, false};
             queue.push(next_state);
         }
@@ -323,15 +328,19 @@ static common::Elite build_initial_elite(const Config& cfg) {
         if (it != cl.end()) {
             if (packed.is_truck) {
                 if (packed.parent == 0) {
-                    truck_routes[v].push_back({static_cast<int>(packed.index)});
+                    std::size_t vv = (truck_routes.empty() ? 0 : std::min(v, truck_routes.size() - 1));
+                    truck_routes[vv].push_back({static_cast<int>(packed.index)});
                 } else {
-                    truck_routes[v].back().push_back(static_cast<int>(packed.index));
+                    std::size_t vv = (truck_routes.empty() ? 0 : std::min(v, truck_routes.size() - 1));
+                    truck_routes[vv].back().push_back(static_cast<int>(packed.index));
                 }
             } else {
                 if (packed.parent == 0) {
-                    drone_routes[v].push_back({static_cast<int>(packed.index)});
+                    std::size_t vv = (drone_routes.empty() ? 0 : std::min(v, drone_routes.size() - 1));
+                    drone_routes[vv].push_back({static_cast<int>(packed.index)});
                 } else {
-                    drone_routes[v].back().push_back(static_cast<int>(packed.index));
+                    std::size_t vv = (drone_routes.empty() ? 0 : std::min(v, drone_routes.size() - 1));
+                    drone_routes[vv].back().push_back(static_cast<int>(packed.index));
                 }
             }
 
@@ -346,19 +355,21 @@ static common::Elite build_initial_elite(const Config& cfg) {
                 }
             } else {
                 if (packed.is_truck) {
+                    std::size_t vv = (truck_routes.empty() ? 0 : std::min(v, truck_routes.size() - 1));
                     if (packed.parent == 0) {
-                        truck_routes[v].pop_back();
+                        truck_routes[vv].pop_back();
                     } else {
-                        truck_routes[v].back().pop_back();
+                        truck_routes[vv].back().pop_back();
                     }
                     if (!cfg.single_truck_route) {
                         truck_next(0, v);
                     }
                 } else {
+                    std::size_t vv = (drone_routes.empty() ? 0 : std::min(v, drone_routes.size() - 1));
                     if (packed.parent == 0) {
-                        drone_routes[v].pop_back();
+                        drone_routes[vv].pop_back();
                     } else {
-                        drone_routes[v].back().pop_back();
+                        drone_routes[vv].back().pop_back();
                     }
                     drone_next(0, v);
                 }
@@ -500,6 +511,8 @@ void worker(int rank) {
 
             int n;
             MPI_Recv(&n, 1, MPI_INT, common::MASTER_RANK, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            if (n == 0) continue;
 
             std::vector<int> buf(n);
             MPI_Recv(buf.data(), n, MPI_INT, common::MASTER_RANK, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

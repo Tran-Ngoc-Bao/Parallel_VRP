@@ -13,7 +13,7 @@
 #include <sstream>
 #include <mpi.h>
 
-const int ELITE_POOL_SIZE = 10;
+const int ELITE_POOL_SIZE = 20;
 
 static void update_global_best_elite(const common::Elite &candidate,
                                      const Config &cfg,
@@ -118,14 +118,18 @@ void master(int size) {
         if (flag_pull) {
             int worker_rank;
             MPI_Recv(&worker_rank, 1, MPI_INT, status.MPI_SOURCE, common::TAG_PULL_ELITE_WORKER_REQUEST, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            
-            common::Elite pulled_elite;
-            pull_elite(pulled_elite, elite_pool, elite_pool_count);
+            if (elite_pool_count == 0) {
+                int n = 0;
+                MPI_Send(&n, 1, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
+            } else {
+                common::Elite pulled_elite;
+                pull_elite(pulled_elite, elite_pool, elite_pool_count);
 
-            auto buf = common::pack_elite(pulled_elite);
-            int n = (int) buf.size();
-            MPI_Send(&n, 1, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
-            MPI_Send(buf.data(), n, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
+                auto buf = common::pack_elite(pulled_elite);
+                int n = (int) buf.size();
+                MPI_Send(&n, 1, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
+                MPI_Send(buf.data(), n, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
+            }
         }
 
         MPI_Iprobe(MPI_ANY_SOURCE, common::TAG_WORKER_DONE, MPI_COMM_WORLD, &flag_done, &status);
