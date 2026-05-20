@@ -461,7 +461,6 @@ common::Elite apply_move22(
     int best_new_pos = 0;
     double best_cost_delta = 0.0;
     
-    #pragma omp parallel for collapse(2) reduction(min:best_cost_delta) shared(best_move_i, best_new_pos)
     for (int i = 0; i < (int) route_seq.size() - 1; ++i) {
         for (int j = 0; j < (int) route_seq.size(); ++j) {
             if (i == j || (i + 1 == j)) continue;
@@ -483,13 +482,10 @@ common::Elite apply_move22(
             const double candidate_makespan = std::max(other_max, new_element_time);
             const double delta = candidate_makespan - base_makespan;
             
-            #pragma omp critical
-            {
-                if (delta < best_cost_delta) {
-                    best_cost_delta = delta;
-                    best_move_i = i;
-                    best_new_pos = j;
-                }
+            if (delta < best_cost_delta) {
+                best_cost_delta = delta;
+                best_move_i = i;
+                best_new_pos = j;
             }
         }
     }

@@ -179,19 +179,57 @@ struct ElitePool {
             const Config &cfg = global_config();
             double w_edge = cfg.diversity_weight_edge;
             double w_assign = cfg.diversity_weight_assignment;
-            for (std::size_t i = 0; i < solutions.size(); ++i) {
-                EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(candidate, solutions[i].sol);
-                AssignmentMismatchStats assignment_stats = compute_assignment_mismatch_from_a_to_b(candidate, solutions[i].sol);
-                double normalized_edge = (edge_stats.total_edges_in_a > 0)
-                    ? (static_cast<double>(edge_stats.edges_lost) / static_cast<double>(edge_stats.total_edges_in_a))
-                    : 0.0;
-                double assignment_diff = (assignment_stats.total_customers > 0)
-                    ? (static_cast<double>(assignment_stats.mismatched_customers) / static_cast<double>(assignment_stats.total_customers))
-                    : 0.0;
-                double diff = w_edge * normalized_edge + w_assign * assignment_diff;
-                if (diff < min_diff) {
-                    min_diff = diff;
-                    most_similar_idx = i;
+            if (w_edge == 1.0 && w_assign == 0.0) {
+                for (std::size_t i = 0; i < solutions.size(); ++i) {
+                    EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(candidate, solutions[i].sol);
+                    double diff = (edge_stats.total_edges_in_a > 0)
+                        ? (static_cast<double>(edge_stats.edges_lost) /
+                        static_cast<double>(edge_stats.total_edges_in_a))
+                        : 0.0;
+
+                    if (diff < min_diff) {
+                        min_diff = diff;
+                        most_similar_idx = i;
+                    }
+                }
+            }
+            else if (w_edge == 0.0 && w_assign == 1.0) {
+                for (std::size_t i = 0; i < solutions.size(); ++i) {
+                    AssignmentMismatchStats assignment_stats =
+                        compute_assignment_mismatch_from_a_to_b(candidate, solutions[i].sol);
+                    double diff = (assignment_stats.total_customers > 0)
+                        ? (static_cast<double>(assignment_stats.mismatched_customers) /
+                        static_cast<double>(assignment_stats.total_customers))
+                        : 0.0;
+
+                    if (diff < min_diff) {
+                        min_diff = diff;
+                        most_similar_idx = i;
+                    }
+                }
+            }
+            else {
+                for (std::size_t i = 0; i < solutions.size(); ++i) {
+                    EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(candidate, solutions[i].sol);
+                    AssignmentMismatchStats assignment_stats =
+                        compute_assignment_mismatch_from_a_to_b(candidate, solutions[i].sol);
+
+                    double normalized_edge = (edge_stats.total_edges_in_a > 0)
+                        ? (static_cast<double>(edge_stats.edges_lost) /
+                        static_cast<double>(edge_stats.total_edges_in_a))
+                        : 0.0;
+
+                    double assignment_diff = (assignment_stats.total_customers > 0)
+                        ? (static_cast<double>(assignment_stats.mismatched_customers) /
+                        static_cast<double>(assignment_stats.total_customers))
+                        : 0.0;
+
+                    double diff = w_edge * normalized_edge + w_assign * assignment_diff;
+
+                    if (diff < min_diff) {
+                        min_diff = diff;
+                        most_similar_idx = i;
+                    }
                 }
             }
 

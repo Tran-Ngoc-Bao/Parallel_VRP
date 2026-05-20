@@ -38,6 +38,8 @@ int input(int argc, char* *argv) {
     run_cmd->add_flag  ("--adaptive-fixed-segments",   args.run.adaptive_fixed_segments);
     run_cmd->add_option("--ejection-chain-iterations", args.run.ejection_chain_iterations);
     run_cmd->add_option("--destroy-rate",              args.run.destroy_rate);
+    run_cmd->add_option("--diversity-weight-edge",     args.run.diversity_weight_edge);
+    run_cmd->add_option("--diversity-weight-assignment", args.run.diversity_weight_assignment);
 
     std::map<std::string, cli::ConfigType> ct_map{
         {"low", cli::ConfigType::Low}, {"high", cli::ConfigType::High}

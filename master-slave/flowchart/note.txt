@@ -15,3 +15,36 @@ I. 11/04/2026
     2. OpenMP
         - Song song để chọn cách move tốt nhất cho lần lặp hiện tại
             (Lặp tất cả khách hàng trên tất cả các truck/drone để chọn cách move tốt nhất)
+
+II. Bảng so sánh
+    1. Các chiến lược đã cài đặt:
+        - Ngẫu nhiên:
+            + Các worker cùng 1 seed -> Áp dụng: Mỗi worker 1 seed khác nhau
+            + Mỗi worker 1 nghiệm khởi tạo theo chiến lược phân cụm
+            + Thứ tự neihborhood là ngẫu nhiên và cố định với mỗi worker
+            + Không có segment -> Pull elite sau số iteration không cải thiện -> Sau số pull elite thì worker dừng
+            + Elite pool:
+                Pull elite: chọn ngẫu nhiên từ pool;
+                Push elite: khi pool đầy loại elite giống với ứng viên được đẩy lên nhất (đếm số cạnh khác biệt) -> Áp dụng cải tiến
+        - Adaptive:
+            + Mỗi worker 1 seed khác nhau (Cải tiến hợp lý)
+            + Mỗi worker 1 nghiệm khởi tạo theo chiến lược phân cụm
+            + Adaptive neihborhood selection
+            + Pull elite sau số segment không cải thiện -> Reset tabu -> Sau số pull elite thì worker dừng
+            + Elite pool:
+                Pull elite: chọn ngẫu nhiên từ pool (trong các elite không phải worker đó gửi lên);
+                Push elite: khi pool đầy loại elite giống với ứng viên được đẩy lên nhất
+                    (đếm số cạnh khác biệt + đếm số đỉnh khác phương tiện; có chuẩn hóa về [0,1]; có trọng số giữa 2 cách đếm)
+                    (Cải tiến hợp lý + Đưa ra so sánh tỉ lệ trọng số)
+        - Adaptive với tham số tabu khác nhau trên mỗi worker (Đưa ra so sánh)
+        - Các chiến lược pull elite khác nhau (Đưa ra so sánh trên Ngẫu nhiên + Adaptive)
+        - Kết hợp với OpenMP (Đưa ra so sánh)
+    2. Chỉ tiêu so sánh:
+        - Chia mục:
+            + Ngẫu nhiên
+            + Adaptive
+            + Tổng hợp
+        - Các chiến lược
+        - Số lượng customer:
+            + Kết quả (trung vị)
+            + Thời gian chạy (trung bình)

@@ -19,14 +19,20 @@
 const int PULL_ELITE_NO_IMPROVE_INTERVAL = 100;
 const int STOP_AFTER_PULLS = 30;
 
-static std::mt19937_64 make_rng(const Config &cfg) {
+static std::mt19937_64 make_rng(const Config &cfg, int rank) {
+    uint64_t base;
     if (cfg.seed) {
-        return std::mt19937_64(*cfg.seed);
+        base = *cfg.seed;
+    } else {
+        std::random_device rd;
+        std::seed_seq seq{rd(), rd(), rd(), rd()};
+        uint64_t tmp[1];
+        seq.generate(&tmp[0], &tmp[1]);
+        base = tmp[0];
     }
 
-    std::random_device rd;
-    std::seed_seq seq{rd(), rd(), rd(), rd()};
-    return std::mt19937_64(seq);
+    uint64_t s = base ^ (0x9e3779b97f4a7c15ULL + static_cast<uint64_t>(rank) + (base << 6) + (base >> 2));
+    return std::mt19937_64(s);
 }
 
 static double customer_demand(const Config &cfg, std::size_t customer) {
@@ -434,7 +440,7 @@ static common::Elite build_initial_elite(const Config& cfg) {
 
 void worker(int rank) {
     const Config &cfg = global_config();
-    std::mt19937_64 rng = make_rng(cfg);
+    std::mt19937_64 rng = make_rng(cfg, rank);
 
     common::Elite elite = build_initial_elite(cfg);
     elite.worker_rank = rank;

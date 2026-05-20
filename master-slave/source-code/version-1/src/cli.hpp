@@ -48,6 +48,8 @@ struct RunArgs {
     bool          adaptive_fixed_segments    = false;
     std::size_t   ejection_chain_iterations  = 0;
     double        destroy_rate               = 0.1;
+    double        diversity_weight_edge      = 0.5;
+    double        diversity_weight_assignment = 0.5;
     ConfigType    speed_type                 = ConfigType::High;
     ConfigType    range_type                 = ConfigType::High;
     DistanceType  truck_distance             = DistanceType::Euclidean;

@@ -135,6 +135,8 @@ struct Config {
     bool                 adaptive_fixed_segments   = false;
     std::size_t          ejection_chain_iterations = 0;
     double               destroy_rate              = 0.1;
+    double               diversity_weight_edge     = 0.5;
+    double               diversity_weight_assignment = 0.5;
     cli::ConfigType      speed_type                = cli::ConfigType::High;
     cli::ConfigType      range_type                = cli::ConfigType::High;
     double               waiting_time_limit        = 3600.0;

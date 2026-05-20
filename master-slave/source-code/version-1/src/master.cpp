@@ -27,42 +27,123 @@ static void update_global_best_elite(const common::Elite &candidate,
     }
 }
 
-static int count_diff_elite(const common::Elite &a, const common::Elite &b) {
-    auto extract = [](const common::Elite &e) {
-        std::map<int, int> m;
-        for (const auto &el : e.elements)
-            for (const auto &trip : el.trips)
-                for (const auto &[cus, nxt] : trip.customers)
-                    m[cus] = nxt;
-        return m;
-    };
+static std::map<int, int> extract_next_map(const common::Elite &e) {
+    std::map<int, int> next_map;
+    for (const auto &el : e.elements) {
+        for (const auto &trip : el.trips) {
+            for (const auto &[cus, nxt] : trip.customers) {
+                next_map[cus] = nxt;
+            }
+        }
+    }
+    return next_map;
+}
 
-    auto map_a = extract(a);
-    auto map_b = extract(b);
+static std::map<int, int> extract_vehicle_assignment_map(const common::Elite &e) {
+    std::map<int, int> assign_map;
+
+    for (const auto &el : e.elements) {
+        for (const auto &trip : el.trips) {
+            for (const auto &[cus, nxt] : trip.customers) {
+                (void)nxt;
+                assign_map[cus] = el.type;
+            }
+        }
+    }
+    return assign_map;
+}
+
+static int count_edge_diff_elite(const common::Elite &a, const common::Elite &b) {
+    const auto map_a = extract_next_map(a);
+    const auto map_b = extract_next_map(b);
 
     int diff = 0;
 
     for (const auto &[cus, next_a] : map_a) {
-        if (map_b[cus] != next_a)
-            diff++;
+        auto it = map_b.find(cus);
+        if (it == map_b.end() || it->second != next_a) {
+            ++diff;
+        }
     }
 
     return diff;
 }
 
-static void push_elite(const common::Elite &e, int &elite_pool_count, std::vector<common::Elite> &elite_pool) {
+static int count_vehicle_assignment_diff_elite(const common::Elite &a, const common::Elite &b) {
+    const auto map_a = extract_vehicle_assignment_map(a);
+    const auto map_b = extract_vehicle_assignment_map(b);
+
+    int diff = 0;
+
+    for (const auto &[cus, assign_a] : map_a) {
+        auto it = map_b.find(cus);
+        if (it == map_b.end() || it->second != assign_a) {
+            ++diff;
+        }
+    }
+
+    return diff;
+}
+
+static double count_diff_elite(
+    const common::Elite &a,
+    const common::Elite &b,
+    double w_edge,
+    double w_assign
+) {
+    if (w_edge == 1.0 && w_assign == 0.0) {
+        const auto edge_diff = count_edge_diff_elite(a, b);
+        const auto edge_map = extract_next_map(a);
+        return edge_map.empty()
+            ? 0.0
+            : static_cast<double>(edge_diff) / static_cast<double>(edge_map.size());
+    }
+
+    if (w_edge == 0.0 && w_assign == 1.0) {
+        const auto assign_diff = count_vehicle_assignment_diff_elite(a, b);
+        const auto assign_map = extract_vehicle_assignment_map(a);
+        return assign_map.empty()
+            ? 0.0
+            : static_cast<double>(assign_diff) / static_cast<double>(assign_map.size());
+    }
+
+    const auto edge_map = extract_next_map(a);
+    const auto assign_map = extract_vehicle_assignment_map(a);
+
+    const double normalized_edge =
+        edge_map.empty()
+            ? 0.0
+            : static_cast<double>(count_edge_diff_elite(a, b)) / static_cast<double>(edge_map.size());
+
+    const double normalized_assign =
+        assign_map.empty()
+            ? 0.0
+            : static_cast<double>(count_vehicle_assignment_diff_elite(a, b)) / static_cast<double>(assign_map.size());
+
+    return w_edge * normalized_edge + w_assign * normalized_assign;
+}
+
+static void push_elite(const common::Elite &e,
+                       int &elite_pool_count,
+                       std::vector<common::Elite> &elite_pool) {
     if (elite_pool_count < ELITE_POOL_SIZE) {
         elite_pool[elite_pool_count++] = e;
     } else {
+        const Config &cfg = global_config();
+        const double w_edge = cfg.diversity_weight_edge;
+        const double w_assign = cfg.diversity_weight_assignment;
+
         int replace = 0;
-        int min_diff = count_diff_elite(e, elite_pool[0]);
+        double min_diff = count_diff_elite(e, elite_pool[0], w_edge, w_assign);
+
         for (int i = 1; i < ELITE_POOL_SIZE; ++i) {
-            const int diff = count_diff_elite(e, elite_pool[i]);
+            const double diff = count_diff_elite(e, elite_pool[i], w_edge, w_assign);
             if (diff < min_diff) {
                 min_diff = diff;
                 replace = i;
             }
         }
+
         elite_pool[replace] = e;
     }
 }
