@@ -24,6 +24,7 @@ struct EliteElement {
 
 struct Elite {
     int worker_rank = -1;
+    std::size_t pull_count = 0;
     std::vector<EliteElement> elements;
 };
 

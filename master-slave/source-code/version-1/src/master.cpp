@@ -4,6 +4,7 @@
 #include "solutions.hpp"
 
 #include <iostream>
+#include <algorithm>
 #include <map>
 #include <random>
 #include <thread>
@@ -12,8 +13,6 @@
 #include <vector>
 #include <sstream>
 #include <mpi.h>
-
-const int ELITE_POOL_SIZE = 20;
 
 static void update_global_best_elite(const common::Elite &candidate,
                                      const Config &cfg,
@@ -126,7 +125,8 @@ static double count_diff_elite(
 static void push_elite(const common::Elite &e,
                        int &elite_pool_count,
                        std::vector<common::Elite> &elite_pool) {
-    if (elite_pool_count < ELITE_POOL_SIZE) {
+    int pool_capacity = static_cast<int>(elite_pool.size());
+    if (elite_pool_count < pool_capacity) {
         elite_pool[elite_pool_count++] = e;
     } else {
         const Config &cfg = global_config();
@@ -136,7 +136,7 @@ static void push_elite(const common::Elite &e,
         int replace = 0;
         double min_diff = count_diff_elite(e, elite_pool[0], w_edge, w_assign);
 
-        for (int i = 1; i < ELITE_POOL_SIZE; ++i) {
+        for (int i = 1; i < pool_capacity; ++i) {
             const double diff = count_diff_elite(e, elite_pool[i], w_edge, w_assign);
             if (diff < min_diff) {
                 min_diff = diff;
@@ -148,30 +148,105 @@ static void push_elite(const common::Elite &e,
     }
 }
 
-static void pull_elite(common::Elite &e, const std::vector<common::Elite> &elite_pool, int elite_pool_count) {
+static void pull_elite(common::Elite &e, std::vector<common::Elite> &elite_pool, int elite_pool_count) {
+    const Config &cfg = global_config();
+
     std::vector<int> candidate_indices;
     candidate_indices.reserve(elite_pool_count);
-
-    for (int i = 0; i < elite_pool_count; ++i) {
-        candidate_indices.push_back(i);
-    }
+    for (int i = 0; i < elite_pool_count; ++i) candidate_indices.push_back(i);
 
     static std::random_device rd;
     static std::mt19937_64 gen(rd());
-    std::uniform_int_distribution<int> dist(0, static_cast<int>(candidate_indices.size()) - 1);
-    int idx = candidate_indices[dist(gen)];
-    e = elite_pool[idx];
+
+    auto mark_and_return = [&](int idx) -> common::Elite& {
+        ++elite_pool[idx].pull_count;
+        return elite_pool[idx];
+    };
+
+    auto pick_random = [&]() -> common::Elite& {
+        std::uniform_int_distribution<int> dist(0, static_cast<int>(candidate_indices.size()) - 1);
+        return mark_and_return(candidate_indices[dist(gen)]);
+    };
+
+    auto pick_topk = [&](int k) -> common::Elite& {
+        std::vector<int> sorted = candidate_indices;
+        std::sort(sorted.begin(), sorted.end(), [&](int lhs, int rhs) {
+            return solutions::compute_elite_cost(cfg, elite_pool[lhs]) <
+                   solutions::compute_elite_cost(cfg, elite_pool[rhs]);
+        });
+        k = std::min(k, static_cast<int>(sorted.size()));
+        std::uniform_int_distribution<int> dist(0, k - 1);
+        return mark_and_return(sorted[dist(gen)]);
+    };
+
+    auto pick_rank_based = [&]() -> common::Elite& {
+        std::vector<int> sorted = candidate_indices;
+        std::sort(sorted.begin(), sorted.end(), [&](int lhs, int rhs) {
+            return solutions::compute_elite_cost(cfg, elite_pool[lhs]) <
+                   solutions::compute_elite_cost(cfg, elite_pool[rhs]);
+        });
+        std::vector<double> weights(sorted.size(), 0.0);
+        for (std::size_t i = 0; i < sorted.size(); ++i) weights[i] = 1.0 / static_cast<double>(i + 1);
+        std::discrete_distribution<std::size_t> dist(weights.begin(), weights.end());
+        return mark_and_return(sorted[dist(gen)]);
+    };
+
+    auto pick_pullcount_based = [&]() -> common::Elite& {
+        std::vector<double> weights;
+        weights.reserve(candidate_indices.size());
+        for (int idx : candidate_indices) {
+            weights.push_back(1.0 / (1.0 + static_cast<double>(elite_pool[idx].pull_count)));
+        }
+        std::discrete_distribution<std::size_t> dist(weights.begin(), weights.end());
+        return mark_and_return(candidate_indices[dist(gen)]);
+    };
+
+    auto pick_diverse = [&]() -> common::Elite& {
+        int best_idx = candidate_indices.front();
+        double best_score = std::numeric_limits<double>::lowest();
+        for (int idx : candidate_indices) {
+            double score_sum = 0.0;
+            int count = 0;
+            for (int other = 0; other < elite_pool_count; ++other) {
+                if (other == idx) continue;
+                score_sum += count_diff_elite(elite_pool[idx], elite_pool[other], cfg.diversity_weight_edge, cfg.diversity_weight_assignment);
+                ++count;
+            }
+            const double score = count > 0 ? score_sum / static_cast<double>(count) : 0.0;
+            if (score > best_score) {
+                best_score = score;
+                best_idx = idx;
+            }
+        }
+        return mark_and_return(best_idx);
+    };
+
+    common::Elite &picked = [&]() -> common::Elite& {
+        switch (cfg.elite_pull_strategy) {
+            case cli::ElitePullStrategy::Random:    return pick_random();
+            case cli::ElitePullStrategy::TopK: {
+                int k = std::max(1, static_cast<int>(elite_pool.size() / 2));
+                return pick_topk(k);
+            }
+            case cli::ElitePullStrategy::Rank:      return pick_rank_based();
+            case cli::ElitePullStrategy::PullCount: return pick_pullcount_based();
+            case cli::ElitePullStrategy::Diverse:   return pick_diverse();
+        }
+        return pick_random();
+    }();
+
+    e = picked;
 }
 
 void master(int size) {
+    const Config &cfg = global_config();
     int elite_pool_count = 0;
-    std::vector<common::Elite> elite_pool(ELITE_POOL_SIZE);
+    const std::size_t elite_keep_count = std::clamp(static_cast<std::size_t>(cfg.elite_pool_factor * static_cast<double>(cfg.customers_count)), static_cast<std::size_t>(5), static_cast<std::size_t>(50));
+    std::vector<common::Elite> elite_pool(elite_keep_count);
     std::vector<char> worker_done(size, 0);
     int done_workers = 0;
     double global_best_cost = std::numeric_limits<double>::infinity();
-    common::Elite global_best_elite;
-
-    const Config &cfg = global_config();
+    common::Elite global_best_elite;    
 
     MPI_Status status;
     int iterations = 0;

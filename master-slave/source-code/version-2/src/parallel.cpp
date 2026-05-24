@@ -76,6 +76,17 @@ Solution recv_solution(int source, int tag)
     return Solution::from_json(nlohmann::json::parse(recv_string_impl(source, tag)));
 }
 
+bool is_valid_solution_for_exchange(const Solution& s)
+{
+    if (!s.feasible) return false;
+    try {
+        s.verify();
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 struct EdgeLossStats {
     std::size_t edges_lost = 0;
     std::size_t total_edges_in_a = 0;
@@ -162,12 +173,50 @@ compute_assignment_mismatch_from_a_to_b(const Solution& a, const Solution& b)
     return AssignmentMismatchStats{assign_diff_count, customers};
 }
 
+static double count_diff_elite(
+    const Solution& a,
+    const Solution& b,
+    double w_edge,
+    double w_assign)
+{
+    if (w_edge == 1.0 && w_assign == 0.0) {
+        EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(a, b);
+        return (edge_stats.total_edges_in_a > 0)
+            ? (static_cast<double>(edge_stats.edges_lost) /
+               static_cast<double>(edge_stats.total_edges_in_a))
+            : 0.0;
+    }
+
+    if (w_edge == 0.0 && w_assign == 1.0) {
+        AssignmentMismatchStats assignment_stats = compute_assignment_mismatch_from_a_to_b(a, b);
+        return (assignment_stats.total_customers > 0)
+            ? (static_cast<double>(assignment_stats.mismatched_customers) /
+               static_cast<double>(assignment_stats.total_customers))
+            : 0.0;
+    }
+
+    EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(a, b);
+    AssignmentMismatchStats assignment_stats = compute_assignment_mismatch_from_a_to_b(a, b);
+
+    double normalized_edge = (edge_stats.total_edges_in_a > 0)
+        ? (static_cast<double>(edge_stats.edges_lost) /
+           static_cast<double>(edge_stats.total_edges_in_a))
+        : 0.0;
+
+    double assignment_diff = (assignment_stats.total_customers > 0)
+        ? (static_cast<double>(assignment_stats.mismatched_customers) /
+           static_cast<double>(assignment_stats.total_customers))
+        : 0.0;
+
+    return w_edge * normalized_edge + w_assign * assignment_diff;
+}
+
 struct ElitePool {
     explicit ElitePool(std::size_t keep_count) : keep_count(keep_count) {}
 
     void consider(Solution candidate, int source_worker)
     {
-        if (!candidate.feasible) {
+        if (!is_valid_solution_for_exchange(candidate)) {
             return;
         }
 
@@ -179,57 +228,12 @@ struct ElitePool {
             const Config &cfg = global_config();
             double w_edge = cfg.diversity_weight_edge;
             double w_assign = cfg.diversity_weight_assignment;
-            if (w_edge == 1.0 && w_assign == 0.0) {
-                for (std::size_t i = 0; i < solutions.size(); ++i) {
-                    EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(candidate, solutions[i].sol);
-                    double diff = (edge_stats.total_edges_in_a > 0)
-                        ? (static_cast<double>(edge_stats.edges_lost) /
-                        static_cast<double>(edge_stats.total_edges_in_a))
-                        : 0.0;
+            for (std::size_t i = 0; i < solutions.size(); ++i) {
+                double diff = count_diff_elite(candidate, solutions[i].sol, w_edge, w_assign);
 
-                    if (diff < min_diff) {
-                        min_diff = diff;
-                        most_similar_idx = i;
-                    }
-                }
-            }
-            else if (w_edge == 0.0 && w_assign == 1.0) {
-                for (std::size_t i = 0; i < solutions.size(); ++i) {
-                    AssignmentMismatchStats assignment_stats =
-                        compute_assignment_mismatch_from_a_to_b(candidate, solutions[i].sol);
-                    double diff = (assignment_stats.total_customers > 0)
-                        ? (static_cast<double>(assignment_stats.mismatched_customers) /
-                        static_cast<double>(assignment_stats.total_customers))
-                        : 0.0;
-
-                    if (diff < min_diff) {
-                        min_diff = diff;
-                        most_similar_idx = i;
-                    }
-                }
-            }
-            else {
-                for (std::size_t i = 0; i < solutions.size(); ++i) {
-                    EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(candidate, solutions[i].sol);
-                    AssignmentMismatchStats assignment_stats =
-                        compute_assignment_mismatch_from_a_to_b(candidate, solutions[i].sol);
-
-                    double normalized_edge = (edge_stats.total_edges_in_a > 0)
-                        ? (static_cast<double>(edge_stats.edges_lost) /
-                        static_cast<double>(edge_stats.total_edges_in_a))
-                        : 0.0;
-
-                    double assignment_diff = (assignment_stats.total_customers > 0)
-                        ? (static_cast<double>(assignment_stats.mismatched_customers) /
-                        static_cast<double>(assignment_stats.total_customers))
-                        : 0.0;
-
-                    double diff = w_edge * normalized_edge + w_assign * assignment_diff;
-
-                    if (diff < min_diff) {
-                        min_diff = diff;
-                        most_similar_idx = i;
-                    }
+                if (diff < min_diff) {
+                    min_diff = diff;
+                    most_similar_idx = i;
                 }
             }
 
@@ -242,7 +246,7 @@ struct ElitePool {
         return solutions.empty();
     }
 
-    const Solution& pick_for_dispatch(int excluded_worker, std::mt19937& rng) const
+    const Solution& pick_for_dispatch(int excluded_worker, std::mt19937& rng, cli::ElitePullStrategy strategy)
     {
         std::vector<std::size_t> candidates;
         for (std::size_t i = 0; i < solutions.size(); ++i) {
@@ -251,16 +255,99 @@ struct ElitePool {
             }
         }
         if (candidates.empty()) {
+            ++solutions.front().pull_count;
             return solutions.front().sol;
         }
-        std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
-        return solutions[candidates[dist(rng)]].sol;
+
+        auto mark_and_return = [&](std::size_t idx) -> const Solution& {
+            ++solutions[idx].pull_count;
+            return solutions[idx].sol;
+        };
+
+        auto pick_random = [&]() -> const Solution& {
+            std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
+            return mark_and_return(candidates[dist(rng)]);
+        };
+
+        auto pick_topk = [&](std::size_t k) -> const Solution& {
+            std::vector<std::size_t> sorted = candidates;
+            std::sort(sorted.begin(), sorted.end(), [&](std::size_t lhs, std::size_t rhs) {
+                return solutions[lhs].sol.cost() < solutions[rhs].sol.cost();
+            });
+            k = std::min(k, sorted.size());
+            std::uniform_int_distribution<std::size_t> dist(0, k - 1);
+            return mark_and_return(sorted[dist(rng)]);
+        };
+
+        auto pick_rank_based = [&]() -> const Solution& {
+            std::vector<std::size_t> sorted = candidates;
+            std::sort(sorted.begin(), sorted.end(), [&](std::size_t lhs, std::size_t rhs) {
+                return solutions[lhs].sol.cost() < solutions[rhs].sol.cost();
+            });
+            std::vector<double> weights(sorted.size(), 0.0);
+            for (std::size_t i = 0; i < sorted.size(); ++i) {
+                weights[i] = 1.0 / static_cast<double>(i + 1);
+            }
+            std::discrete_distribution<std::size_t> dist(weights.begin(), weights.end());
+            return mark_and_return(sorted[dist(rng)]);
+        };
+
+        auto pick_pullcount_based = [&]() -> const Solution& {
+            std::vector<double> weights;
+            weights.reserve(candidates.size());
+            for (std::size_t idx : candidates) {
+                weights.push_back(1.0 / (1.0 + static_cast<double>(solutions[idx].pull_count)));
+            }
+            std::discrete_distribution<std::size_t> dist(weights.begin(), weights.end());
+            return mark_and_return(candidates[dist(rng)]);
+        };
+
+        auto pick_diverse = [&]() -> const Solution& {
+            const Config &cfg = global_config();
+            std::size_t best_idx = candidates.front();
+            double best_score = std::numeric_limits<double>::lowest();
+            for (std::size_t idx : candidates) {
+                double total_score = 0.0;
+                std::size_t count = 0;
+                for (std::size_t other = 0; other < solutions.size(); ++other) {
+                    if (other == idx) continue;
+                    double diff = count_diff_elite(
+                        solutions[idx].sol,
+                        solutions[other].sol,
+                        cfg.diversity_weight_edge,
+                        cfg.diversity_weight_assignment);
+                    total_score += diff;
+                    ++count;
+                }
+                double score = count > 0 ? total_score / static_cast<double>(count) : 0.0;
+                if (score > best_score) {
+                    best_score = score;
+                    best_idx = idx;
+                }
+            }
+            return mark_and_return(best_idx);
+        };
+
+        switch (strategy) {
+            case cli::ElitePullStrategy::Random:    return pick_random();
+            case cli::ElitePullStrategy::TopK: {
+                // derive k from pool size (keep_count)
+                std::size_t k = std::max<std::size_t>(1, keep_count / 2);
+                return pick_topk(k);
+            }
+            case cli::ElitePullStrategy::Rank:      return pick_rank_based();
+            case cli::ElitePullStrategy::PullCount: return pick_pullcount_based();
+            case cli::ElitePullStrategy::Diverse:   return pick_diverse();
+        }
+
+        return pick_random();
     }
 
 private:
     struct Entry {
         Solution sol;
         int source_worker;
+        std::size_t pull_count = 0;
     };
 
     std::size_t keep_count;
@@ -273,7 +360,8 @@ Solution run_master(int world_size)
 {
     const auto t0 = std::chrono::steady_clock::now();
     const Config base_cfg = global_config();
-    Solution best_solution;
+    // Keep a valid fallback so verify() never receives an empty solution.
+    Solution best_solution = Solution::initialize();
     const std::size_t elite_keep_count = std::clamp(static_cast<std::size_t>(base_cfg.elite_pool_factor * static_cast<double>(base_cfg.customers_count)), static_cast<std::size_t>(5), static_cast<std::size_t>(50));
     ElitePool elite_pool(elite_keep_count);
     const auto t1 = std::chrono::steady_clock::now();
@@ -305,7 +393,7 @@ Solution run_master(int world_size)
             processed = true;
             const int worker_rank = status.MPI_SOURCE;
             Solution elite = recv_solution(worker_rank, TAG_ELITE_PUSH);
-            if (elite.feasible) {
+            if (is_valid_solution_for_exchange(elite)) {
                 if (!best_solution.feasible || elite.cost() < best_solution.cost()) {
                     best_solution = elite;
                 }
@@ -323,10 +411,11 @@ Solution run_master(int world_size)
             const int worker_rank = status.MPI_SOURCE;
             std::string req = recv_string_impl(worker_rank, TAG_ELITE_PULL);
             if (elite_pool.empty()) {
-                Solution empty;
-                send_solution(worker_rank, TAG_ELITE_REPLY, empty);
+                // No elite yet: send current best fallback instead of an empty solution.
+                send_solution(worker_rank, TAG_ELITE_REPLY, best_solution);
             } else {
-                const Solution& elite_to_send = elite_pool.pick_for_dispatch(worker_rank, rng);
+                const Solution& elite_to_send = elite_pool.pick_for_dispatch(
+                    worker_rank, rng, base_cfg.elite_pull_strategy);
                 send_solution(worker_rank, TAG_ELITE_REPLY, elite_to_send);
             }
         }
@@ -340,10 +429,10 @@ Solution run_master(int world_size)
             processed = true;
             const int worker_rank = status.MPI_SOURCE;
             Solution result = recv_solution(worker_rank, TAG_RESULT);
-            if (result.feasible) {
-                if (!best_solution.feasible || result.cost() < best_solution.cost()) {
-                    best_solution = result;
-                }
+            if (is_valid_solution_for_exchange(result) && (!best_solution.feasible || result.cost() < best_solution.cost())) {
+                best_solution = result;
+            }
+            if (is_valid_solution_for_exchange(result)) {
                 elite_pool.consider(std::move(result), worker_rank);
             }
             worker_running[static_cast<std::size_t>(worker_rank)] = false;
@@ -378,13 +467,12 @@ void run_worker(int rank)
     Config worker_cfg = base_cfg;
     worker_cfg.seed = seed;
     worker_cfg.disable_logging = true;
-
-    Solution root = Solution::initialize();
     set_global_config(worker_cfg);
+    Solution root = Solution::initialize();
 
     Solution::EliteHooks hooks;
     hooks.push_elite = [&](std::size_t, const Solution& elite) {
-        if (elite.feasible) {
+        if (is_valid_solution_for_exchange(elite)) {
             send_solution(0, TAG_ELITE_PUSH, elite);
         }
     };
@@ -393,7 +481,7 @@ void run_worker(int rank)
         j["iteration"] = iteration;
         send_string_impl(0, TAG_ELITE_PULL, j.dump());
         pulled_elite = recv_solution(0, TAG_ELITE_REPLY);
-        return pulled_elite.feasible;
+        return is_valid_solution_for_exchange(pulled_elite);
     };
 
     Logger logger;

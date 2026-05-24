@@ -16,6 +16,7 @@ std::vector<int> pack_elite(const Elite &e) {
     buf.reserve(128);
 
     pack_int(buf, e.worker_rank);
+    pack_int(buf, static_cast<int>(e.pull_count));
     pack_int(buf, (int) e.elements.size());
     for (const auto &el : e.elements) {
         pack_int(buf, el.type);
@@ -38,6 +39,7 @@ Elite unpack_elite(const std::vector<int> &buf) {
     size_t i = 0;
 
     e.worker_rank = unpack_int(buf, i);
+    e.pull_count = static_cast<std::size_t>(unpack_int(buf, i));
     int elements_count = unpack_int(buf, i);
     e.elements.resize(elements_count);
 

@@ -40,6 +40,17 @@ int input(int argc, char* *argv) {
     run_cmd->add_option("--destroy-rate",              args.run.destroy_rate);
     run_cmd->add_option("--diversity-weight-edge",     args.run.diversity_weight_edge);
     run_cmd->add_option("--diversity-weight-assignment", args.run.diversity_weight_assignment);
+    run_cmd->add_option("--elite-pool-factor",         args.run.elite_pool_factor);
+
+    std::map<std::string, cli::ElitePullStrategy> elite_pull_map{
+        {"random",    cli::ElitePullStrategy::Random},
+        {"topk",      cli::ElitePullStrategy::TopK},
+        {"rank",      cli::ElitePullStrategy::Rank},
+        {"pullcount", cli::ElitePullStrategy::PullCount},
+        {"diverse",   cli::ElitePullStrategy::Diverse}
+    };
+    run_cmd->add_option("--elite-pull-strategy", args.run.elite_pull_strategy)->transform(
+        CLI::CheckedTransformer(elite_pull_map, CLI::ignore_case));
 
     std::map<std::string, cli::ConfigType> ct_map{
         {"low", cli::ConfigType::Low}, {"high", cli::ConfigType::High}

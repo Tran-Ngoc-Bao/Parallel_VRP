@@ -146,6 +146,7 @@ struct Config {
     cli::ConfigType      range_type                = cli::ConfigType::High;
     double               waiting_time_limit        = 3600.0;
     cli::Strategy        strategy                  = cli::Strategy::Adaptive;
+    cli::ElitePullStrategy elite_pull_strategy     = cli::ElitePullStrategy::Random;
     std::optional<std::size_t> fix_iteration       = std::nullopt;
     double               reset_after_factor        = 125.0;
     std::size_t          max_elite_size            = 0;

@@ -8,6 +8,7 @@ namespace cli {
 enum class EnergyModel { Linear = 0, NonLinear = 1, Endurance = 2, Unlimited = 3 };
 enum class ConfigType  { Low, High };
 enum class Strategy    { Random, Cyclic, Vns, Adaptive };
+enum class ElitePullStrategy { Random, TopK, Rank, PullCount, Diverse };
 enum class DistanceType{ Manhattan, Euclidean };
 
 inline const char* to_str(EnergyModel m){
@@ -28,6 +29,16 @@ inline const char* to_str(Strategy s){
         case Strategy::Cyclic:   return "cyclic";
         case Strategy::Vns:      return "vns";
         case Strategy::Adaptive: return "adaptive";
+    }
+    return "";
+}
+inline const char* to_str(ElitePullStrategy s){
+    switch(s){
+        case ElitePullStrategy::Random:    return "random";
+        case ElitePullStrategy::TopK:      return "topk";
+        case ElitePullStrategy::Rank:      return "rank";
+        case ElitePullStrategy::PullCount: return "pullcount";
+        case ElitePullStrategy::Diverse:   return "diverse";
     }
     return "";
 }
@@ -54,6 +65,7 @@ struct RunArgs {
     double        diversity_weight_edge      = 0.5;
     double        diversity_weight_assignment = 0.5;
     double        elite_pool_factor          = 0.1;
+    ElitePullStrategy elite_pull_strategy    = ElitePullStrategy::Random;
     ConfigType    speed_type                 = ConfigType::High;
     ConfigType    range_type                 = ConfigType::High;
     DistanceType  truck_distance             = DistanceType::Euclidean;

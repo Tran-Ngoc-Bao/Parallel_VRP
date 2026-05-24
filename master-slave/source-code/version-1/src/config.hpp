@@ -137,6 +137,8 @@ struct Config {
     double               destroy_rate              = 0.1;
     double               diversity_weight_edge     = 0.5;
     double               diversity_weight_assignment = 0.5;
+    double               elite_pool_factor         = 0.1;
+    cli::ElitePullStrategy elite_pull_strategy     = cli::ElitePullStrategy::Random;
     cli::ConfigType      speed_type                = cli::ConfigType::High;
     cli::ConfigType      range_type                = cli::ConfigType::High;
     double               waiting_time_limit        = 3600.0;

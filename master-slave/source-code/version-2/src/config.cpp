@@ -299,6 +299,7 @@ Config build_config(const cli::RunArgs& args)
     cfg.range_type                = args.range_type;
     cfg.waiting_time_limit        = args.waiting_time_limit;
     cfg.strategy                  = args.strategy;
+    cfg.elite_pull_strategy       = args.elite_pull_strategy;
     cfg.fix_iteration             = args.fix_iteration;
     cfg.reset_after_factor        = args.reset_after_factor;
     cfg.max_elite_size            = args.max_elite_size;
@@ -335,6 +336,16 @@ static std::string strategy_str(cli::Strategy s) {
         case cli::Strategy::Cyclic:   return "cyclic";
         case cli::Strategy::Vns:      return "vns";
         case cli::Strategy::Adaptive: return "adaptive";
+    }
+    return "";
+}
+static std::string elite_pull_strategy_str(cli::ElitePullStrategy s) {
+    switch(s) {
+        case cli::ElitePullStrategy::Random:    return "random";
+        case cli::ElitePullStrategy::TopK:      return "topk";
+        case cli::ElitePullStrategy::Rank:      return "rank";
+        case cli::ElitePullStrategy::PullCount: return "pullcount";
+        case cli::ElitePullStrategy::Diverse:   return "diverse";
     }
     return "";
 }
@@ -435,6 +446,7 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["range_type"]                = config_type_str(cfg.range_type);
     j["waiting_time_limit"]        = cfg.waiting_time_limit;
     j["strategy"]                  = strategy_str(cfg.strategy);
+    j["elite_pull_strategy"]       = elite_pull_strategy_str(cfg.elite_pull_strategy);
     if (cfg.fix_iteration)
         j["fix_iteration"]         = *cfg.fix_iteration;
     else
@@ -562,6 +574,13 @@ Config build_config_from_json(const std::string& json_path)
         if (s == "vns")      return cli::Strategy::Vns;
         return cli::Strategy::Adaptive;
     };
+    auto elite_pull_from_str = [](const std::string& s) {
+        if (s == "topk")     return cli::ElitePullStrategy::TopK;
+        if (s == "rank")     return cli::ElitePullStrategy::Rank;
+        if (s == "pullcount")return cli::ElitePullStrategy::PullCount;
+        if (s == "diverse")  return cli::ElitePullStrategy::Diverse;
+        return cli::ElitePullStrategy::Random;
+    };
 
     cfg.problem                   = j.at("problem").get<std::string>();
     cfg.config                    = em_from_str(j.at("config").get<std::string>());
@@ -580,6 +599,9 @@ Config build_config_from_json(const std::string& json_path)
     cfg.range_type                = st_from_str(j.at("range_type").get<std::string>());
     cfg.waiting_time_limit        = j.at("waiting_time_limit").get<double>();
     cfg.strategy                  = strat_from_str(j.at("strategy").get<std::string>());
+    cfg.elite_pull_strategy       = j.contains("elite_pull_strategy")
+        ? elite_pull_from_str(j.at("elite_pull_strategy").get<std::string>())
+        : cli::ElitePullStrategy::Random;
     if (!j.at("fix_iteration").is_null())
         cfg.fix_iteration         = j.at("fix_iteration").get<std::size_t>();
     cfg.reset_after_factor        = j.at("reset_after_factor").get<double>();

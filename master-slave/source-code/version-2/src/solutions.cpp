@@ -300,7 +300,7 @@ Solution Solution::initialize()
         std::shuffle(cluster.begin(), cluster.end(), rng);
         for (size_t c : cluster) {
             if (truckable[c]) {
-                queue.push({0.0, ci, 0, cluster.front(), true});
+                queue.push({0.0, ci, 0, c, true});
                 break;
             }
         }
@@ -311,7 +311,7 @@ Solution Solution::initialize()
         });
         for (size_t c : cluster) {
             if (dronable_local[c]) {
-                queue.push({0.0, ci, 0, cluster[0], false});
+                queue.push({0.0, ci, 0, c, false});
                 break;
             }
         }
@@ -385,14 +385,14 @@ Solution Solution::initialize()
 
         if (it != cl.end()) {
             if (packed.is_truck) {
-                if (packed.parent == 0)
+                if (packed.parent == 0 || truck_routes[v].empty())
                     truck_routes[v].push_back(TruckRoute::make_single(packed.index));
                 else {
                     auto& rt = truck_routes[v].back();
                     rt = rt->route_push(packed.index);
                 }
             } else {
-                if (packed.parent == 0)
+                if (packed.parent == 0 || drone_routes[v].empty())
                     drone_routes[v].push_back(DroneRoute::make_single(packed.index));
                 else {
                     auto& rt = drone_routes[v].back();
@@ -411,20 +411,36 @@ Solution Solution::initialize()
             } else {
                 // Undo
                 if (packed.is_truck) {
-                    if (packed.parent == 0)
-                        truck_routes[v].pop_back();
-                    else {
+                    if (packed.parent == 0) {
+                        if (!truck_routes[v].empty())
+                            truck_routes[v].pop_back();
+                    }
+                    else if (!truck_routes[v].empty()) {
                         auto& rt = truck_routes[v].back();
-                        rt = rt->route_pop();
+                        if (rt->data().customers.size() <= 3)
+                            truck_routes[v].pop_back();
+                        else
+                            rt = rt->route_pop();
+                    } else {
+                        // Stale queued state can point to a route that has already been removed.
+                        // Nothing to undo in that case.
                     }
                     if (!cfg.single_truck_route)
                         truck_next(0, v);
                 } else {
-                    if (packed.parent == 0)
-                        drone_routes[v].pop_back();
-                    else {
+                    if (packed.parent == 0) {
+                        if (!drone_routes[v].empty())
+                            drone_routes[v].pop_back();
+                    }
+                    else if (!drone_routes[v].empty()) {
                         auto& rt = drone_routes[v].back();
-                        rt = rt->route_pop();
+                        if (rt->data().customers.size() <= 3)
+                            drone_routes[v].pop_back();
+                        else
+                            rt = rt->route_pop();
+                    } else {
+                        // Stale queued state can point to a route that has already been removed.
+                        // Nothing to undo in that case.
                     }
                     drone_next(0, v);
                 }

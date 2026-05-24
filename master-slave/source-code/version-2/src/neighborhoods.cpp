@@ -84,8 +84,7 @@ static void inter_route_internal(
                        n == Neighborhood::Move21);
 
     // Helper lambda: iterate route_j over type RJ
-    auto iterate_j = [&](auto rj_tag) {
-        using RJ = typename decltype(rj_tag)::type;
+    auto iterate_j = [&]<typename RJ>() {
         const auto& orig_rj = RouteHelper<RJ>::get_routes(
             st.original.truck_routes, st.original.drone_routes);
 
@@ -93,11 +92,17 @@ static void inter_route_internal(
             const auto& route_i = orig_ri[vehicle_i][ri_idx];
 
             for (size_t vehicle_j = 0; vehicle_j < orig_rj.size(); ++vehicle_j) {
+                if constexpr (std::is_same_v<RI, RJ>) {
+                    if (vehicle_i == vehicle_j) continue;
+                }
+
                 for (size_t rj_idx = 0; rj_idx < orig_rj[vehicle_j].size(); ++rj_idx) {
                     const auto& route_j = orig_rj[vehicle_j][rj_idx];
 
-                    // Skip same route (compare by first interior customer)
-                    if (route_i->data().customers[1] == route_j->data().customers[1]) continue;
+                    // Skip exactly the same route object/index.
+                    if constexpr (std::is_same_v<RI, RJ>) {
+                        if (vehicle_i == vehicle_j && ri_idx == rj_idx) continue;
+                    }
 
                     // Collect neighbors
                     using Tup = std::tuple<
@@ -181,10 +186,8 @@ static void inter_route_internal(
         }
     };
 
-    struct TruckTag { using type = TruckRoute; };
-    struct DroneTag { using type = DroneRoute; };
-    iterate_j(TruckTag{});
-    iterate_j(DroneTag{});
+    iterate_j.template operator()<TruckRoute>();
+    iterate_j.template operator()<DroneRoute>();
 }
 
 // -----------------------------------------------------------------------
@@ -201,8 +204,7 @@ static void inter_route_extract_internal(
     const auto& orig_ri = RouteHelper<RI>::get_routes(
         st.original.truck_routes, st.original.drone_routes);
 
-    auto iterate_j = [&](auto rj_tag) {
-        using RJ = typename decltype(rj_tag)::type;
+    auto iterate_j = [&]<typename RJ>() {
         const auto& orig_rj = RouteHelper<RJ>::get_routes(
             st.original.truck_routes, st.original.drone_routes);
 
@@ -249,10 +251,8 @@ static void inter_route_extract_internal(
         }
     };
 
-    struct TruckTag { using type = TruckRoute; };
-    struct DroneTag { using type = DroneRoute; };
-    iterate_j(TruckTag{});
-    iterate_j(DroneTag{});
+    iterate_j.template operator()<TruckRoute>();
+    iterate_j.template operator()<DroneRoute>();
 }
 
 // -----------------------------------------------------------------------
@@ -271,8 +271,7 @@ static void ejection_chain_internal(IterState& st)
     };
 
     auto same_route = [&](size_t vi, size_t ri, size_t vj, size_t rj) {
-        return vehicle_routes(vi)[ri].customers()[1] ==
-               vehicle_routes(vj)[rj].customers()[1];
+        return vi == vj && ri == rj;
     };
 
     for (size_t vi = 0; vi < total; ++vi) {
