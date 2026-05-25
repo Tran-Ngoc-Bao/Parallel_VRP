@@ -288,7 +288,6 @@ Config build_config(const cli::RunArgs& args)
     cfg.adaptive_iterations       = args.adaptive_iterations;
     cfg.adaptive_fixed_iterations = args.adaptive_fixed_iterations;
     cfg.adaptive_pull_elite_segments = args.adaptive_pull_elite_segments;
-    cfg.adaptive_pull_elite_limit    = args.adaptive_pull_elite_limit;
     cfg.adaptive_fixed_segments   = args.adaptive_fixed_segments;
     cfg.ejection_chain_iterations = args.ejection_chain_iterations;
     cfg.destroy_rate              = args.destroy_rate;
@@ -312,6 +311,13 @@ Config build_config(const cli::RunArgs& args)
     cfg.dry_run                   = args.dry_run;
     cfg.extra                     = args.extra;
     cfg.seed                      = args.seed;
+    cfg.gamma_1                   = args.gamma_1;
+    cfg.gamma_2                   = args.gamma_2;
+    cfg.gamma_3                   = args.gamma_3;
+    cfg.gamma_4                   = args.gamma_4;
+    cfg.min_pull_elites_per_worker = args.min_pull_elites_per_worker;
+    cfg.randomize_worker_hyperparams = args.randomize_worker_hyperparams;
+    cfg.randomize_worker_adaptive_hyperparams = args.randomize_worker_adaptive_hyperparams;
     return cfg;
 }
 
@@ -435,7 +441,6 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["adaptive_iterations"]       = cfg.adaptive_iterations;
     j["adaptive_fixed_iterations"] = cfg.adaptive_fixed_iterations;
     j["adaptive_pull_elite_segments"] = cfg.adaptive_pull_elite_segments;
-    j["adaptive_pull_elite_limit"]    = cfg.adaptive_pull_elite_limit;
     j["adaptive_fixed_segments"]   = cfg.adaptive_fixed_segments;
     j["ejection_chain_iterations"] = cfg.ejection_chain_iterations;
     j["destroy_rate"]              = cfg.destroy_rate;
@@ -461,6 +466,13 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["disable_logging"]           = cfg.disable_logging;
     j["dry_run"]                   = cfg.dry_run;
     j["extra"]                     = cfg.extra;
+    j["gamma_1"]                   = cfg.gamma_1;
+    j["gamma_2"]                   = cfg.gamma_2;
+    j["gamma_3"]                   = cfg.gamma_3;
+    j["gamma_4"]                   = cfg.gamma_4;
+    j["min_pull_elites_per_worker"] = cfg.min_pull_elites_per_worker;
+    j["randomize_worker_hyperparams"]   = cfg.randomize_worker_hyperparams;
+    j["randomize_worker_adaptive_hyperparams"] = cfg.randomize_worker_adaptive_hyperparams;
     return j;
 }
 
@@ -588,7 +600,6 @@ Config build_config_from_json(const std::string& json_path)
     cfg.adaptive_iterations       = j.at("adaptive_iterations").get<std::size_t>();
     cfg.adaptive_fixed_iterations = j.at("adaptive_fixed_iterations").get<bool>();
     cfg.adaptive_pull_elite_segments = j.at("adaptive_pull_elite_segments").get<std::size_t>();
-    cfg.adaptive_pull_elite_limit    = j.at("adaptive_pull_elite_limit").get<std::size_t>();
     cfg.adaptive_fixed_segments   = j.at("adaptive_fixed_segments").get<bool>();
     cfg.ejection_chain_iterations = j.at("ejection_chain_iterations").get<std::size_t>();
     cfg.destroy_rate              = j.at("destroy_rate").get<double>();
@@ -614,6 +625,13 @@ Config build_config_from_json(const std::string& json_path)
     cfg.disable_logging           = j.at("disable_logging").get<bool>();
     cfg.dry_run                   = j.at("dry_run").get<bool>();
     cfg.extra                     = j.at("extra").get<std::string>();
+    cfg.gamma_1                   = j.at("gamma_1").get<double>();
+    cfg.gamma_2                   = j.at("gamma_2").get<double>();
+    cfg.gamma_3                   = j.at("gamma_3").get<double>();
+    cfg.gamma_4                   = j.at("gamma_4").get<double>();
+    cfg.min_pull_elites_per_worker = j.at("min_pull_elites_per_worker").get<std::size_t>();
+    cfg.randomize_worker_hyperparams = j.at("randomize_worker_hyperparams").get<bool>();
+    cfg.randomize_worker_adaptive_hyperparams = j.at("randomize_worker_adaptive_hyperparams").get<bool>();
     return cfg;
 }
 

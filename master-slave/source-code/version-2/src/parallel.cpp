@@ -3,6 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <iomanip>
@@ -58,6 +59,86 @@ void send_seed(int dest, std::size_t seed)
     nlohmann::json j;
     j["seed"] = seed;
     send_string_impl(dest, TAG_JOB, j.dump());
+}
+
+void send_stop_signal(int dest, int tag)
+{
+    int size = -1;
+    MPI_Send(&size, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
+}
+
+static void randomize_worker_hyperparams(Config& cfg)
+{
+    if (!cfg.randomize_worker_hyperparams) {
+        return;
+    }
+
+    std::mt19937_64 rng(cfg.seed ? *cfg.seed
+                                 : static_cast<std::uint64_t>(std::random_device{}()));
+
+    auto draw_scaled_step = [&](int begin_unit, int end_unit, double scale) -> double {
+        if (end_unit < begin_unit) {
+            std::swap(begin_unit, end_unit);
+        }
+        return static_cast<double>(
+            std::uniform_int_distribution<int>(begin_unit, end_unit)(rng)
+        ) / scale;
+    };
+
+    std::array<double, 3> gammas = {
+        draw_scaled_step(0, 6, 10.0),
+        draw_scaled_step(0, 6, 10.0),
+        draw_scaled_step(0, 6, 10.0)
+    };
+
+    std::sort(gammas.begin(), gammas.end(), std::greater<double>());
+    cfg.gamma_1 = gammas[0];
+    cfg.gamma_2 = gammas[1];
+    cfg.gamma_3 = gammas[2];
+
+    cfg.gamma_4 = draw_scaled_step(2, 6, 10.0);
+    cfg.tabu_size_factor = draw_scaled_step(14, 17, 20.0);
+}
+
+static void randomize_worker_adaptive_hyperparams(Config& cfg)
+{
+    if (!cfg.randomize_worker_adaptive_hyperparams) {
+        return;
+    }
+
+    std::mt19937_64 rng(cfg.seed ? *cfg.seed
+                                 : static_cast<std::uint64_t>(std::random_device{}()));
+
+    const std::size_t adaptive_iterations_base = std::max<std::size_t>(1, cfg.adaptive_iterations);
+    const std::size_t adaptive_pull_segments_base = std::max<std::size_t>(1, cfg.adaptive_pull_elite_segments);
+
+    const std::size_t iter_min = std::max<std::size_t>(1, adaptive_iterations_base - 3);
+    const std::size_t iter_max = std::max<std::size_t>(iter_min, adaptive_iterations_base + 3);
+    const std::size_t segment_min = std::max<std::size_t>(1, adaptive_pull_segments_base - 2);
+    const std::size_t segment_max = std::max<std::size_t>(segment_min, adaptive_pull_segments_base + 2);
+
+    std::uniform_int_distribution<std::size_t> iter_dist(iter_min, iter_max);
+    std::uniform_int_distribution<std::size_t> segment_dist(segment_min, segment_max);
+
+    cfg.adaptive_iterations = iter_dist(rng);
+    cfg.adaptive_pull_elite_segments = segment_dist(rng);
+}
+
+static bool recv_solution_or_stop(int source, int tag, Solution& solution)
+{
+    MPI_Status status{};
+    int size = 0;
+    MPI_Recv(&size, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
+    if (size < 0) {
+        return false;
+    }
+
+    std::string payload(static_cast<std::size_t>(size), '\0');
+    if (size > 0) {
+        MPI_Recv(payload.data(), size, MPI_CHAR, source, tag, MPI_COMM_WORLD, &status);
+    }
+    solution = Solution::from_json(nlohmann::json::parse(payload));
+    return true;
 }
 
 std::size_t recv_seed(int source)
@@ -363,13 +444,26 @@ Solution run_master(int world_size)
     // Keep a valid fallback so verify() never receives an empty solution.
     Solution best_solution = Solution::initialize();
     const std::size_t elite_keep_count = std::clamp(static_cast<std::size_t>(base_cfg.elite_pool_factor * static_cast<double>(base_cfg.customers_count)), static_cast<std::size_t>(5), static_cast<std::size_t>(50));
+    const std::size_t min_pull_elites_per_worker = std::max<std::size_t>(1, base_cfg.min_pull_elites_per_worker);
     ElitePool elite_pool(elite_keep_count);
     const auto t1 = std::chrono::steady_clock::now();
     std::size_t next_seed = base_cfg.seed ? *base_cfg.seed : 1;
 
     std::vector<bool> worker_running(static_cast<std::size_t>(world_size), false);
+    std::vector<std::size_t> worker_pull_requests(static_cast<std::size_t>(world_size), 0);
+    bool stop_after_min_pulls = false;
     std::size_t active_workers = 0;
     std::mt19937 rng(static_cast<unsigned>(std::time(nullptr)));
+
+    auto all_running_workers_reached_min_pull = [&]() {
+        for (int worker_rank = 1; worker_rank < world_size; ++worker_rank) {
+            const std::size_t idx = static_cast<std::size_t>(worker_rank);
+            if (worker_running[idx] && worker_pull_requests[idx] < min_pull_elites_per_worker) {
+                return false;
+            }
+        }
+        return true;
+    };
 
     auto start_worker = [&](int worker_rank) {
         send_seed(worker_rank, next_seed++);
@@ -409,8 +503,17 @@ Solution run_master(int world_size)
             if (!ready) break;
             processed = true;
             const int worker_rank = status.MPI_SOURCE;
-            std::string req = recv_string_impl(worker_rank, TAG_ELITE_PULL);
-            if (elite_pool.empty()) {
+            (void)recv_string_impl(worker_rank, TAG_ELITE_PULL);
+
+            const std::size_t worker_idx = static_cast<std::size_t>(worker_rank);
+            ++worker_pull_requests[worker_idx];
+            if (!stop_after_min_pulls && all_running_workers_reached_min_pull()) {
+                stop_after_min_pulls = true;
+            }
+
+            if (stop_after_min_pulls) {
+                send_stop_signal(worker_rank, TAG_ELITE_REPLY);
+            } else if (elite_pool.empty()) {
                 // No elite yet: send current best fallback instead of an empty solution.
                 send_solution(worker_rank, TAG_ELITE_REPLY, best_solution);
             } else {
@@ -467,6 +570,8 @@ void run_worker(int rank)
     Config worker_cfg = base_cfg;
     worker_cfg.seed = seed;
     worker_cfg.disable_logging = true;
+    randomize_worker_hyperparams(worker_cfg);
+    randomize_worker_adaptive_hyperparams(worker_cfg);
     set_global_config(worker_cfg);
     Solution root = Solution::initialize();
 
@@ -476,11 +581,19 @@ void run_worker(int rank)
             send_solution(0, TAG_ELITE_PUSH, elite);
         }
     };
+    bool stop_requested = false;
+    hooks.should_stop = [&]() {
+        return stop_requested;
+    };
+
     hooks.pull_elite = [&](std::size_t iteration, Solution& pulled_elite) -> bool {
         nlohmann::json j;
         j["iteration"] = iteration;
         send_string_impl(0, TAG_ELITE_PULL, j.dump());
-        pulled_elite = recv_solution(0, TAG_ELITE_REPLY);
+        if (!recv_solution_or_stop(0, TAG_ELITE_REPLY, pulled_elite)) {
+            stop_requested = true;
+            return false;
+        }
         return is_valid_solution_for_exchange(pulled_elite);
     };
 

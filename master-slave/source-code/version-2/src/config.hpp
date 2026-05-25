@@ -138,7 +138,6 @@ struct Config {
     std::size_t          adaptive_iterations       = 60;
     bool                 adaptive_fixed_iterations = false;
     std::size_t          adaptive_pull_elite_segments = 1;
-    std::size_t          adaptive_pull_elite_limit    = 1;
     bool                 adaptive_fixed_segments   = false;
     std::size_t          ejection_chain_iterations = 0;
     double               destroy_rate              = 0.1;
@@ -162,6 +161,13 @@ struct Config {
     std::optional<uint64_t> seed                   = std::nullopt;
     double          diversity_weight_edge          = 0.5;
     double          diversity_weight_assignment    = 0.5;
+    double          gamma_1                        = 0.3;
+    double          gamma_2                        = 0.2;
+    double          gamma_3                        = 0.1;
+    double          gamma_4                        = 0.3;
+    std::size_t     min_pull_elites_per_worker     = 1;
+    bool            randomize_worker_hyperparams   = false;
+    bool            randomize_worker_adaptive_hyperparams = false;
 };
 
 // Distance matrix helper

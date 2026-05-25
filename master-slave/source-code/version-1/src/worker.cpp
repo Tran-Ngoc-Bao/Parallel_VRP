@@ -16,8 +16,23 @@
 #include <vector>
 #include <mpi.h>
 
-const int PULL_ELITE_NO_IMPROVE_INTERVAL = 100;
 const int STOP_AFTER_PULLS = 30;
+
+static int compute_pull_no_improve_interval(const Config &cfg, const common::Elite &elite) {
+    std::size_t total_vehicle = 0;
+    for (const auto &element : elite.elements) {
+        if (!element.trips.empty()) {
+            ++total_vehicle;
+        }
+    }
+    if (total_vehicle == 0) {
+        total_vehicle = 1;
+    }
+
+    const double base = static_cast<double>(cfg.customers_count) / static_cast<double>(total_vehicle);
+    const std::size_t adap_its = static_cast<std::size_t>(cfg.adaptive_iterations * base);
+    return std::max(1, static_cast<int>(adap_its));
+}
 
 static std::mt19937_64 make_rng(const Config &cfg, int rank) {
     uint64_t base;
@@ -457,6 +472,7 @@ void worker(int rank) {
     int no_improve_count = 0;
     int pull_count = 0;
     int iter = 0;
+    const int pull_elite_no_improve_interval = compute_pull_no_improve_interval(cfg, elite);
     std::vector<int> neighborhood_order = solutions::generate_neighborhood_order(rng);
 
     while (true) {
@@ -507,7 +523,7 @@ void worker(int rank) {
 
         no_improve_count++;
 
-        if (no_improve_count % PULL_ELITE_NO_IMPROVE_INTERVAL == 0) {
+        if (no_improve_count % pull_elite_no_improve_interval == 0) {
             if (++pull_count > STOP_AFTER_PULLS) {
                 break;
             }

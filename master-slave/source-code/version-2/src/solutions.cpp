@@ -647,6 +647,10 @@ Solution Solution::destroy_and_repair(
 Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* hooks)
 {
     const Config& cfg = global_config();
+    double gamma_1 = cfg.gamma_1;
+    double gamma_2 = cfg.gamma_2;
+    double gamma_3 = cfg.gamma_3;
+    double gamma_4 = cfg.gamma_4;
 
     size_t total_vehicle = 0;
     for (const auto& r : root.truck_routes) if (!r.empty()) ++total_vehicle;
@@ -786,11 +790,11 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* 
         if (found) {
             if (neighbor.feasible) {
                 if (neighbor.cost() + TOLERANCE < result.cost())
-                    adaptive.scores[neighborhood_idx] += 0.3;
+                    adaptive.scores[neighborhood_idx] += gamma_1;
                 else if (neighbor.cost() < current.cost())
-                    adaptive.scores[neighborhood_idx] += 0.2;
+                    adaptive.scores[neighborhood_idx] += gamma_2;
                 else
-                    adaptive.scores[neighborhood_idx] += 0.1;
+                    adaptive.scores[neighborhood_idx] += gamma_3;
             }
             record_new(neighbor, iteration, adaptive.segment);
             current = std::move(neighbor);
@@ -832,6 +836,10 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* 
                     }
                 }
 
+                if (hooks && hooks->should_stop && hooks->should_stop()) {
+                    break;
+                }
+
                 if (pulled) {
                     adaptive.segment_reset = adaptive.segment;
                     adaptive.last_improved_seg = adaptive.segment;
@@ -839,10 +847,6 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* 
                     std::fill(adaptive.scores.begin(), adaptive.scores.end(), 0.0);
                     std::fill(adaptive.occurences.begin(), adaptive.occurences.end(), 0);
                     ++adaptive.pull_count;
-
-                    if (adaptive.pull_count >= std::max<std::size_t>(1, cfg.adaptive_pull_elite_limit)) {
-                        break;
-                    }
                 }
             }
 
@@ -921,8 +925,8 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* 
             if (eos) {
                 for (size_t ni = 0; ni < NUM_NEIGHBORHOODS; ++ni) {
                     if (adaptive.occurences[ni] > 0) {
-                        adaptive.weights[ni] = 0.7 * adaptive.weights[ni]
-                            + 0.3 * adaptive.scores[ni] / adaptive.occurences[ni];
+                        adaptive.weights[ni] = (1 - gamma_4) * adaptive.weights[ni]
+                            + gamma_4 * adaptive.scores[ni] / adaptive.occurences[ni];
                     }
                     adaptive.scores[ni]     = 0.0;
                     adaptive.occurences[ni] = 0;

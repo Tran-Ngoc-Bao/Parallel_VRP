@@ -42,13 +42,19 @@ int main(int argc, char** argv)
     run_cmd->add_option("--adaptive-iterations",       args.run.adaptive_iterations);
     run_cmd->add_flag  ("--adaptive-fixed-iterations", args.run.adaptive_fixed_iterations);
     run_cmd->add_option("--adaptive-pull-elite-segments", args.run.adaptive_pull_elite_segments);
-    run_cmd->add_option("--adaptive-pull-elite-limit",    args.run.adaptive_pull_elite_limit);
     run_cmd->add_flag  ("--adaptive-fixed-segments",   args.run.adaptive_fixed_segments);
     run_cmd->add_option("--ejection-chain-iterations", args.run.ejection_chain_iterations);
     run_cmd->add_option("--destroy-rate",              args.run.destroy_rate);
     run_cmd->add_option("--diversity-weight-edge",     args.run.diversity_weight_edge);
     run_cmd->add_option("--diversity-weight-assignment", args.run.diversity_weight_assignment);
     run_cmd->add_option("--elite-pool-factor",         args.run.elite_pool_factor);
+    run_cmd->add_option("--gamma-1",                   args.run.gamma_1);
+    run_cmd->add_option("--gamma-2",                   args.run.gamma_2);
+    run_cmd->add_option("--gamma-3",                   args.run.gamma_3);
+    run_cmd->add_option("--gamma-4",                   args.run.gamma_4);
+    run_cmd->add_option("--min-pull-elites-per-worker", args.run.min_pull_elites_per_worker);
+    run_cmd->add_flag  ("--randomize-worker-hyperparams", args.run.randomize_worker_hyperparams);
+    run_cmd->add_flag  ("--randomize-worker-adaptive-hyperparams", args.run.randomize_worker_adaptive_hyperparams);
 
     std::map<std::string, cli::ElitePullStrategy> elite_pull_map{
         {"random",    cli::ElitePullStrategy::Random},
