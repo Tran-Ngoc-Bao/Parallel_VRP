@@ -16,7 +16,7 @@
 #include <vector>
 #include <mpi.h>
 
-const int STOP_AFTER_PULLS = 30;
+const int STOP_AFTER_PULLS = 10;
 
 static int compute_pull_no_improve_interval(const Config &cfg, const common::Elite &elite) {
     std::size_t total_vehicle = 0;
