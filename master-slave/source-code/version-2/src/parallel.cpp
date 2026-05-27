@@ -169,18 +169,8 @@ bool is_valid_solution_for_exchange(const Solution& s)
     }
 }
 
-struct EdgeLossStats {
-    std::size_t edges_lost = 0;
-    std::size_t total_edges_in_a = 0;
-};
-
-struct AssignmentMismatchStats {
-    std::size_t mismatched_customers = 0;
-    std::size_t total_customers = 0;
-};
-
-static EdgeLossStats
-compute_edge_loss_from_a_to_b(const Solution& a, const Solution& b)
+static std::size_t
+count_diff_elite(const Solution& a, const Solution& b)
 {
     auto pack_edge = [](std::size_t u, std::size_t v) -> uint64_t {
         if (u > v) std::swap(u, v);
@@ -218,79 +208,19 @@ compute_edge_loss_from_a_to_b(const Solution& a, const Solution& b)
     collect_edge_counts(b, eb);
 
     std::size_t edge_loss_raw = 0;
-    std::size_t total_edges_a = 0;
-    for (const auto &p : ea) total_edges_a += p.second;
-
-    for (const auto &p : ea) {
-        std::size_t ca = p.second;
+    for (const auto& p : ea) {
+        const std::size_t ca = p.second;
         std::size_t cb = 0;
-        auto itb = eb.find(p.first);
-        if (itb != eb.end()) cb = itb->second;
-        if (ca > cb) edge_loss_raw += (ca - cb);
+        const auto itb = eb.find(p.first);
+        if (itb != eb.end()) {
+            cb = itb->second;
+        }
+        if (ca > cb) {
+            edge_loss_raw += (ca - cb);
+        }
     }
 
-    return EdgeLossStats{edge_loss_raw, total_edges_a};
-}
-
-static AssignmentMismatchStats
-compute_assignment_mismatch_from_a_to_b(const Solution& a, const Solution& b)
-{
-    const Config &cfg = global_config();
-    std::size_t customers = cfg.customers_count;
-    std::size_t assign_diff_count = 0;
-    if (customers == 0) return AssignmentMismatchStats{0, 0};
-
-    std::vector<int> assign_a(customers, -1);
-    std::vector<int> assign_b(customers, -1);
-    for (const auto &truck_vehicle : a.truck_routes) for (const auto &route : truck_vehicle)
-        for (auto cid : route->data().customers) if (cid < customers) assign_a[cid] = 0;
-    for (const auto &drone_vehicle : a.drone_routes) for (const auto &route : drone_vehicle)
-        for (auto cid : route->data().customers) if (cid < customers) assign_a[cid] = 1;
-    for (const auto &truck_vehicle : b.truck_routes) for (const auto &route : truck_vehicle)
-        for (auto cid : route->data().customers) if (cid < customers) assign_b[cid] = 0;
-    for (const auto &drone_vehicle : b.drone_routes) for (const auto &route : drone_vehicle)
-        for (auto cid : route->data().customers) if (cid < customers) assign_b[cid] = 1;
-
-    for (std::size_t cid = 0; cid < customers; ++cid) if (assign_a[cid] != assign_b[cid]) ++assign_diff_count;
-    return AssignmentMismatchStats{assign_diff_count, customers};
-}
-
-static double count_diff_elite(
-    const Solution& a,
-    const Solution& b,
-    double w_edge,
-    double w_assign)
-{
-    if (w_edge == 1.0 && w_assign == 0.0) {
-        EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(a, b);
-        return (edge_stats.total_edges_in_a > 0)
-            ? (static_cast<double>(edge_stats.edges_lost) /
-               static_cast<double>(edge_stats.total_edges_in_a))
-            : 0.0;
-    }
-
-    if (w_edge == 0.0 && w_assign == 1.0) {
-        AssignmentMismatchStats assignment_stats = compute_assignment_mismatch_from_a_to_b(a, b);
-        return (assignment_stats.total_customers > 0)
-            ? (static_cast<double>(assignment_stats.mismatched_customers) /
-               static_cast<double>(assignment_stats.total_customers))
-            : 0.0;
-    }
-
-    EdgeLossStats edge_stats = compute_edge_loss_from_a_to_b(a, b);
-    AssignmentMismatchStats assignment_stats = compute_assignment_mismatch_from_a_to_b(a, b);
-
-    double normalized_edge = (edge_stats.total_edges_in_a > 0)
-        ? (static_cast<double>(edge_stats.edges_lost) /
-           static_cast<double>(edge_stats.total_edges_in_a))
-        : 0.0;
-
-    double assignment_diff = (assignment_stats.total_customers > 0)
-        ? (static_cast<double>(assignment_stats.mismatched_customers) /
-           static_cast<double>(assignment_stats.total_customers))
-        : 0.0;
-
-    return w_edge * normalized_edge + w_assign * assignment_diff;
+    return edge_loss_raw;
 }
 
 struct ElitePool {
@@ -305,10 +235,6 @@ struct ElitePool {
         if (solutions.size() < keep_count) {
             solutions.push_back({std::move(candidate), source_worker});
         } else {
-            const Config &cfg = global_config();
-            double w_edge = cfg.diversity_weight_edge;
-            double w_assign = cfg.diversity_weight_assignment;
-
             auto choose_replacement = [&](bool prefer_pulled_only) {
                 std::size_t chosen_idx = 0;
                 double min_diff = std::numeric_limits<double>::infinity();
@@ -319,7 +245,7 @@ struct ElitePool {
                         continue;
                     }
 
-                    double diff = count_diff_elite(candidate, solutions[i].sol, w_edge, w_assign);
+                    double diff = static_cast<double>(count_diff_elite(candidate, solutions[i].sol));
                     if (!found || diff < min_diff) {
                         min_diff = diff;
                         chosen_idx = i;
@@ -401,7 +327,6 @@ struct ElitePool {
         };
 
         auto pick_diverse = [&]() -> const Solution& {
-            const Config &cfg = global_config();
             std::size_t best_idx = candidates.front();
             double best_score = std::numeric_limits<double>::lowest();
             for (std::size_t idx : candidates) {
@@ -409,11 +334,9 @@ struct ElitePool {
                 std::size_t count = 0;
                 for (std::size_t other = 0; other < solutions.size(); ++other) {
                     if (other == idx) continue;
-                    double diff = count_diff_elite(
+                    double diff = static_cast<double>(count_diff_elite(
                         solutions[idx].sol,
-                        solutions[other].sol,
-                        cfg.diversity_weight_edge,
-                        cfg.diversity_weight_assignment);
+                        solutions[other].sol));
                     total_score += diff;
                     ++count;
                 }
@@ -455,7 +378,7 @@ private:
 std::size_t compute_min_pull_elites_per_worker(const Config& cfg)
 {
     constexpr std::size_t kMinClamp = 1;
-    constexpr std::size_t kMaxClamp = 20;
+    constexpr std::size_t kMaxClamp = 30;
 
     const double scaled = cfg.min_pull_elites_per_worker_factor
         * std::sqrt(static_cast<double>(cfg.customers_count));

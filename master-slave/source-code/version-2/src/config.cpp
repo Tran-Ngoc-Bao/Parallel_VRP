@@ -291,8 +291,6 @@ Config build_config(const cli::RunArgs& args)
     cfg.adaptive_fixed_segments   = args.adaptive_fixed_segments;
     cfg.ejection_chain_iterations = args.ejection_chain_iterations;
     cfg.destroy_rate              = args.destroy_rate;
-    cfg.diversity_weight_edge     = args.diversity_weight_edge;
-    cfg.diversity_weight_assignment = args.diversity_weight_assignment;
     cfg.elite_pool_factor         = args.elite_pool_factor;
     cfg.speed_type                = args.speed_type;
     cfg.range_type                = args.range_type;
@@ -444,8 +442,6 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["adaptive_fixed_segments"]   = cfg.adaptive_fixed_segments;
     j["ejection_chain_iterations"] = cfg.ejection_chain_iterations;
     j["destroy_rate"]              = cfg.destroy_rate;
-    j["diversity_weight_edge"]     = cfg.diversity_weight_edge;
-    j["diversity_weight_assignment"] = cfg.diversity_weight_assignment;
     j["elite_pool_factor"]         = cfg.elite_pool_factor;
     j["speed_type"]                = config_type_str(cfg.speed_type);
     j["range_type"]                = config_type_str(cfg.range_type);
@@ -603,8 +599,6 @@ Config build_config_from_json(const std::string& json_path)
     cfg.adaptive_fixed_segments   = j.at("adaptive_fixed_segments").get<bool>();
     cfg.ejection_chain_iterations = j.at("ejection_chain_iterations").get<std::size_t>();
     cfg.destroy_rate              = j.at("destroy_rate").get<double>();
-    cfg.diversity_weight_edge     = j.at("diversity_weight_edge").get<double>();
-    cfg.diversity_weight_assignment = j.at("diversity_weight_assignment").get<double>();
     cfg.elite_pool_factor         = j.value("elite_pool_factor", 1.5);
     cfg.speed_type                = st_from_str(j.at("speed_type").get<std::string>());
     cfg.range_type                = st_from_str(j.at("range_type").get<std::string>());

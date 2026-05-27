@@ -159,8 +159,6 @@ struct Config {
     bool                 dry_run                   = false;
     std::string          extra                     = "";
     std::optional<uint64_t> seed                   = std::nullopt;
-    double          diversity_weight_edge          = 0.5;
-    double          diversity_weight_assignment    = 0.5;
     double          gamma_1                        = 0.3;
     double          gamma_2                        = 0.2;
     double          gamma_3                        = 0.1;

@@ -45,8 +45,6 @@ int main(int argc, char** argv)
     run_cmd->add_flag  ("--adaptive-fixed-segments",   args.run.adaptive_fixed_segments);
     run_cmd->add_option("--ejection-chain-iterations", args.run.ejection_chain_iterations);
     run_cmd->add_option("--destroy-rate",              args.run.destroy_rate);
-    run_cmd->add_option("--diversity-weight-edge",     args.run.diversity_weight_edge);
-    run_cmd->add_option("--diversity-weight-assignment", args.run.diversity_weight_assignment);
     run_cmd->add_option("--elite-pool-factor",         args.run.elite_pool_factor);
     run_cmd->add_option("--gamma-1",                   args.run.gamma_1);
     run_cmd->add_option("--gamma-2",                   args.run.gamma_2);
