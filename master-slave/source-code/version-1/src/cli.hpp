@@ -83,6 +83,7 @@ struct RunArgs {
     bool          dry_run                    = false;
     std::string   extra                      = "";
     std::optional<uint64_t> seed             = std::nullopt;
+    double        min_pull_elites_per_worker_factor = 1.0;
 };
 
 struct EvaluateArgs {

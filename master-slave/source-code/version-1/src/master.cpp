@@ -133,15 +133,25 @@ static void push_elite(const common::Elite &e,
         const double w_edge = cfg.diversity_weight_edge;
         const double w_assign = cfg.diversity_weight_assignment;
 
-        int replace = 0;
-        double min_diff = count_diff_elite(e, elite_pool[0], w_edge, w_assign);
-
-        for (int i = 1; i < pool_capacity; ++i) {
-            const double diff = count_diff_elite(e, elite_pool[i], w_edge, w_assign);
-            if (diff < min_diff) {
-                min_diff = diff;
-                replace = i;
+        auto choose_replacement = [&](bool prefer_pulled_only) -> int {
+            int chosen = 0;
+            double min_diff = std::numeric_limits<double>::infinity();
+            bool found = false;
+            for (int i = 0; i < pool_capacity; ++i) {
+                if (prefer_pulled_only && elite_pool[i].pull_count == 0) continue;
+                const double diff = count_diff_elite(e, elite_pool[i], w_edge, w_assign);
+                if (!found || diff < min_diff) {
+                    min_diff = diff;
+                    chosen = i;
+                    found = true;
+                }
             }
+            return found ? chosen : 0;
+        };
+
+        int replace = choose_replacement(true);
+        if (elite_pool[replace].pull_count == 0) {
+            replace = choose_replacement(false);
         }
 
         elite_pool[replace] = e;
@@ -250,6 +260,19 @@ void master(int size) {
 
     MPI_Status status;
     int iterations = 0;
+    auto compute_min_pull = [&](const Config &c) -> int {
+        const double factor = c.min_pull_elites_per_worker_factor;
+        const double scaled = factor * std::sqrt(static_cast<double>(c.customers_count));
+        const int derived = static_cast<int>(std::ceil(std::max(1.0, scaled)));
+        const int min_clamp = 1;
+        const int max_clamp = 50;
+        return std::clamp(derived, min_clamp, max_clamp);
+    };
+    const int min_pull_elites_per_worker = compute_min_pull(cfg);
+    std::vector<int> worker_pull_requests(size, 0);
+    std::vector<char> worker_running(size, 0);
+    for (int r = 1; r < size; ++r) worker_running[r] = 1;
+    bool stop_after_min_pulls = false;
     
     while (done_workers < size - 1) {
         iterations++;
@@ -274,7 +297,21 @@ void master(int size) {
         if (flag_pull) {
             int worker_rank;
             MPI_Recv(&worker_rank, 1, MPI_INT, status.MPI_SOURCE, common::TAG_PULL_ELITE_WORKER_REQUEST, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            if (elite_pool_count == 0) {
+            ++worker_pull_requests[worker_rank];
+            if (!stop_after_min_pulls) {
+                bool all_reached = true;
+                for (int r = 1; r < size; ++r) {
+                    if (worker_running[r] && worker_pull_requests[r] < min_pull_elites_per_worker) {
+                        all_reached = false; break;
+                    }
+                }
+                if (all_reached) stop_after_min_pulls = true;
+            }
+
+            if (stop_after_min_pulls) {
+                int n = -1;
+                MPI_Send(&n, 1, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
+            } else if (elite_pool_count == 0) {
                 int n = 0;
                 MPI_Send(&n, 1, MPI_INT, worker_rank, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD);
             } else {

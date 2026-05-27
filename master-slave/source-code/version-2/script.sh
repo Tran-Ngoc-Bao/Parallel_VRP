@@ -8,11 +8,11 @@ cmake --build "${SCRIPT_DIR}/build"
 mpirun --allow-run-as-root -np 8 \
     "${SCRIPT_DIR}/build/tabu_search" run \
     "${SCRIPT_DIR}/../../../data/100.30.4.txt" \
-    --adaptive-iterations 7 \
-    --adaptive-pull-elite-segments 3 \
+    --adaptive-iterations 5 \
+    --adaptive-pull-elite-segments 4 \
     --elite-pull-strategy random \
     --diversity-weight-edge 1.0 \
     --diversity-weight-assignment 0.0 \
-    --min-pull-elites-per-worker 10 \
+    --min-pull-elites-per-worker-factor 0.9 \
     # --randomize-worker-hyperparams \
     # --randomize-worker-adaptive-hyperparams \

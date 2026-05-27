@@ -41,6 +41,7 @@ int input(int argc, char* *argv) {
     run_cmd->add_option("--diversity-weight-edge",     args.run.diversity_weight_edge);
     run_cmd->add_option("--diversity-weight-assignment", args.run.diversity_weight_assignment);
     run_cmd->add_option("--elite-pool-factor",         args.run.elite_pool_factor);
+    run_cmd->add_option("--min-pull-elites-per-worker-factor", args.run.min_pull_elites_per_worker_factor);
 
     std::map<std::string, cli::ElitePullStrategy> elite_pull_map{
         {"random",    cli::ElitePullStrategy::Random},

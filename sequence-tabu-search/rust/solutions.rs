@@ -6,10 +6,10 @@ use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 use std::{cmp, fmt};
 
-use rand::distr::weighted::WeightedIndex;
+use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
-use rand::{Rng, rng};
+use rand::Rng;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -388,7 +388,7 @@ impl Solution {
         impl Eq for _State {}
 
         let mut queue = BinaryHeap::new();
-        let mut rng = rng();
+        let mut rng = rand::thread_rng();
         for (i, cluster) in clusters.iter_mut().enumerate() {
             if cluster.is_empty() {
                 continue;
@@ -687,11 +687,11 @@ impl Solution {
         let mut ordered = (1..CONFIG.customers_count + 1).collect::<Vec<usize>>();
         ordered.sort_unstable_by(|&a, &b| scores[a].total_cmp(&scores[b]));
 
-        let mut rng = rng();
+        let mut rng = rand::thread_rng();
         let destroy_count = (CONFIG.customers_count as f64 * CONFIG.destroy_rate) as usize;
         let mut to_destroy = HashSet::new();
         while to_destroy.len() < destroy_count {
-            let index = rng.random_range(0..ordered.len()).pow(2) / ordered.len();
+                let index = rng.gen_range(0..ordered.len()).pow(2) / ordered.len();
             to_destroy.insert(ordered[index]);
         }
 
@@ -929,7 +929,7 @@ impl Solution {
                 Some(iteration) => 1..iteration + 1,
                 None => 1..usize::MAX,
             };
-            let mut rng = rand::rng();
+            let mut rng = rand::thread_rng();
 
             let mut tabu_lists = vec![vec![]; NEIGHBORHOODS.len()];
 
@@ -1078,7 +1078,7 @@ impl Solution {
                         break;
                     }
 
-                    let i = rng.random_range(0..elite_set.len());
+                    let i = rng.gen_range(0..elite_set.len());
                     current = Rc::new(elite_set.swap_remove(i).destroy_and_repair(&edge_records));
                     for tabu_list in &mut tabu_lists {
                         tabu_list.clear();
@@ -1121,7 +1121,7 @@ impl Solution {
 
                 match CONFIG.strategy {
                     Strategy::Random => {
-                        neighborhood_idx = rng.random_range(0..NEIGHBORHOODS.len());
+                        neighborhood_idx = rng.gen_range(0..NEIGHBORHOODS.len());
                     }
                     Strategy::Cyclic => {
                         neighborhood_idx = (neighborhood_idx + 1) % NEIGHBORHOODS.len();

@@ -52,7 +52,7 @@ int main(int argc, char** argv)
     run_cmd->add_option("--gamma-2",                   args.run.gamma_2);
     run_cmd->add_option("--gamma-3",                   args.run.gamma_3);
     run_cmd->add_option("--gamma-4",                   args.run.gamma_4);
-    run_cmd->add_option("--min-pull-elites-per-worker", args.run.min_pull_elites_per_worker);
+    run_cmd->add_option("--min-pull-elites-per-worker-factor", args.run.min_pull_elites_per_worker_factor);
     run_cmd->add_flag  ("--randomize-worker-hyperparams", args.run.randomize_worker_hyperparams);
     run_cmd->add_flag  ("--randomize-worker-adaptive-hyperparams", args.run.randomize_worker_adaptive_hyperparams);
 

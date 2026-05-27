@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::time::SystemTime;
 
 use rand::Rng;
-use rand::distr::Alphanumeric;
+use rand::distributions::Alphanumeric;
 
 use crate::config::{CONFIG, SerializedConfig};
 use crate::errors::ExpectedValue;
@@ -53,7 +53,7 @@ impl Logger<'_> {
                 .file_stem()
                 .and_then(|f| f.to_os_string().into_string().ok()),
         )?;
-        let id = rand::rng()
+        let id = rand::thread_rng()
             .sample_iter(&Alphanumeric)
             .take(8)
             .map(char::from)

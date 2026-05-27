@@ -165,7 +165,7 @@ struct Config {
     double          gamma_2                        = 0.2;
     double          gamma_3                        = 0.1;
     double          gamma_4                        = 0.3;
-    std::size_t     min_pull_elites_per_worker     = 1;
+    double          min_pull_elites_per_worker_factor = 1.0;
     bool            randomize_worker_hyperparams   = false;
     bool            randomize_worker_adaptive_hyperparams = false;
 };

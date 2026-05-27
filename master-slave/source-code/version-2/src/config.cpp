@@ -315,7 +315,7 @@ Config build_config(const cli::RunArgs& args)
     cfg.gamma_2                   = args.gamma_2;
     cfg.gamma_3                   = args.gamma_3;
     cfg.gamma_4                   = args.gamma_4;
-    cfg.min_pull_elites_per_worker = args.min_pull_elites_per_worker;
+    cfg.min_pull_elites_per_worker_factor = args.min_pull_elites_per_worker_factor;
     cfg.randomize_worker_hyperparams = args.randomize_worker_hyperparams;
     cfg.randomize_worker_adaptive_hyperparams = args.randomize_worker_adaptive_hyperparams;
     return cfg;
@@ -470,7 +470,7 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["gamma_2"]                   = cfg.gamma_2;
     j["gamma_3"]                   = cfg.gamma_3;
     j["gamma_4"]                   = cfg.gamma_4;
-    j["min_pull_elites_per_worker"] = cfg.min_pull_elites_per_worker;
+    j["min_pull_elites_per_worker_factor"] = cfg.min_pull_elites_per_worker_factor;
     j["randomize_worker_hyperparams"]   = cfg.randomize_worker_hyperparams;
     j["randomize_worker_adaptive_hyperparams"] = cfg.randomize_worker_adaptive_hyperparams;
     return j;
@@ -629,7 +629,7 @@ Config build_config_from_json(const std::string& json_path)
     cfg.gamma_2                   = j.at("gamma_2").get<double>();
     cfg.gamma_3                   = j.at("gamma_3").get<double>();
     cfg.gamma_4                   = j.at("gamma_4").get<double>();
-    cfg.min_pull_elites_per_worker = j.at("min_pull_elites_per_worker").get<std::size_t>();
+    cfg.min_pull_elites_per_worker_factor = j.at("min_pull_elites_per_worker_factor").get<double>();
     cfg.randomize_worker_hyperparams = j.at("randomize_worker_hyperparams").get<bool>();
     cfg.randomize_worker_adaptive_hyperparams = j.at("randomize_worker_adaptive_hyperparams").get<bool>();
     return cfg;

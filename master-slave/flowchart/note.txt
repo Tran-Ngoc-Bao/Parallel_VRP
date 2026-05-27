@@ -25,7 +25,9 @@ II. Bảng so sánh
             + Không có segment -> Pull elite sau số iteration không cải thiện -> Sau số pull elite thì worker dừng
             + Elite pool:
                 Pull elite: chọn ngẫu nhiên từ pool;
-                Push elite: khi pool đầy loại elite giống với ứng viên được đẩy lên nhất (đếm số cạnh khác biệt) -> Áp dụng cải tiến
+                Push elite: khi pool đầy loại elite giống với ứng viên được đẩy lên nhất -> Áp dụng cải tiến
+                    (ưu tiên giữ lại elite chưa được pull)
+                    (đếm số cạnh khác biệt)
         - Adaptive:
             + Mỗi worker 1 seed khác nhau (Cải tiến hợp lý)
             + Mỗi worker 1 nghiệm khởi tạo theo chiến lược phân cụm
@@ -34,6 +36,7 @@ II. Bảng so sánh
             + Elite pool:
                 Pull elite: chọn ngẫu nhiên từ pool (trong các elite không phải worker đó gửi lên);
                 Push elite: khi pool đầy loại elite giống với ứng viên được đẩy lên nhất
+                    (ưu tiên giữ lại elite chưa được pull)
                     (đếm số cạnh khác biệt + đếm số đỉnh khác phương tiện; có chuẩn hóa về [0,1]; có trọng số giữa 2 cách đếm)
                     (Cải tiến hợp lý + Đưa ra so sánh tỉ lệ trọng số)
         - Adaptive với tham số tabu khác nhau trên mỗi worker (Đưa ra so sánh)

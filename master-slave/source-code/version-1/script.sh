@@ -11,4 +11,5 @@ mpirun --allow-run-as-root -np 8 \
     --elite-pull-strategy random \
     --diversity-weight-edge 1.0 \
     --diversity-weight-assignment 0.0 \
-    --adaptive-iterations 5
+    --adaptive-iterations 5 \
+    --min-pull-elites-per-worker-factor 2 \

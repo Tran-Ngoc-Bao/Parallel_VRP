@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <chrono>
 #include <cstddef>
 #include <iomanip>
@@ -304,18 +305,34 @@ struct ElitePool {
         if (solutions.size() < keep_count) {
             solutions.push_back({std::move(candidate), source_worker});
         } else {
-            std::size_t most_similar_idx = 0;
-            double min_diff = std::numeric_limits<double>::infinity();
             const Config &cfg = global_config();
             double w_edge = cfg.diversity_weight_edge;
             double w_assign = cfg.diversity_weight_assignment;
-            for (std::size_t i = 0; i < solutions.size(); ++i) {
-                double diff = count_diff_elite(candidate, solutions[i].sol, w_edge, w_assign);
 
-                if (diff < min_diff) {
-                    min_diff = diff;
-                    most_similar_idx = i;
+            auto choose_replacement = [&](bool prefer_pulled_only) {
+                std::size_t chosen_idx = 0;
+                double min_diff = std::numeric_limits<double>::infinity();
+                bool found = false;
+
+                for (std::size_t i = 0; i < solutions.size(); ++i) {
+                    if (prefer_pulled_only && solutions[i].pull_count == 0) {
+                        continue;
+                    }
+
+                    double diff = count_diff_elite(candidate, solutions[i].sol, w_edge, w_assign);
+                    if (!found || diff < min_diff) {
+                        min_diff = diff;
+                        chosen_idx = i;
+                        found = true;
+                    }
                 }
+
+                return found ? chosen_idx : std::size_t{0};
+            };
+
+            std::size_t most_similar_idx = choose_replacement(true);
+            if (solutions[most_similar_idx].pull_count == 0) {
+                most_similar_idx = choose_replacement(false);
             }
 
             solutions[most_similar_idx] = {std::move(candidate), source_worker};
@@ -435,6 +452,17 @@ private:
     std::vector<Entry> solutions;
 };
 
+std::size_t compute_min_pull_elites_per_worker(const Config& cfg)
+{
+    constexpr std::size_t kMinClamp = 1;
+    constexpr std::size_t kMaxClamp = 20;
+
+    const double scaled = cfg.min_pull_elites_per_worker_factor
+        * std::sqrt(static_cast<double>(cfg.customers_count));
+    const std::size_t derived = static_cast<std::size_t>(std::ceil(std::max(1.0, scaled)));
+    return std::clamp(derived, kMinClamp, kMaxClamp);
+}
+
 } // namespace
 
 Solution run_master(int world_size)
@@ -444,7 +472,7 @@ Solution run_master(int world_size)
     // Keep a valid fallback so verify() never receives an empty solution.
     Solution best_solution = Solution::initialize();
     const std::size_t elite_keep_count = std::clamp(static_cast<std::size_t>(base_cfg.elite_pool_factor * static_cast<double>(base_cfg.customers_count)), static_cast<std::size_t>(5), static_cast<std::size_t>(50));
-    const std::size_t min_pull_elites_per_worker = std::max<std::size_t>(1, base_cfg.min_pull_elites_per_worker);
+    const std::size_t min_pull_elites_per_worker = compute_min_pull_elites_per_worker(base_cfg);
     ElitePool elite_pool(elite_keep_count);
     const auto t1 = std::chrono::steady_clock::now();
     std::size_t next_seed = base_cfg.seed ? *base_cfg.seed : 1;

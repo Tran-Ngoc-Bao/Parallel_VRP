@@ -534,6 +534,7 @@ void worker(int rank) {
             int n;
             MPI_Recv(&n, 1, MPI_INT, common::MASTER_RANK, common::TAG_ELITE_MASTER_SEND_PULLED, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
+            if (n < 0) break;
             if (n == 0) continue;
 
             std::vector<int> buf(n);
