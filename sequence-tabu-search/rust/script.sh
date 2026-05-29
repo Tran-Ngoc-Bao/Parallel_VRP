@@ -27,14 +27,14 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 if [ "$MODE" = "build" ]; then
-  cargo build --release
+  RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native" cargo build --release
   exit $?
 fi
 
 # default: build then run
-cargo build --release
+RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native" cargo build --release
 if [ "${#PROGRAM_ARGS[@]}" -eq 0 ]; then
-  cargo run --release -- run
+  RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native" cargo run --release -- run
 else
-  cargo run --release -- "${PROGRAM_ARGS[@]}"
+  RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native" cargo run --release -- "${PROGRAM_ARGS[@]}"
 fi

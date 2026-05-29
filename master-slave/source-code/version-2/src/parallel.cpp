@@ -86,11 +86,17 @@ static void randomize_worker_hyperparams(Config& cfg)
         ) / scale;
     };
 
-    std::array<double, 3> gammas = {
-        draw_scaled_step(0, 6, 10.0),
-        draw_scaled_step(0, 6, 10.0),
-        draw_scaled_step(0, 6, 10.0)
-    };
+    std::vector<double> gammas;
+    gammas.reserve(3);
+    const double EPS = 1e-9;
+    while (gammas.size() < 3) {
+        double v = draw_scaled_step(1, 5, 10.0);
+        bool dup = false;
+        for (double x : gammas) {
+            if (std::fabs(x - v) < EPS) { dup = true; break; }
+        }
+        if (!dup) gammas.push_back(v);
+    }
 
     std::sort(gammas.begin(), gammas.end(), std::greater<double>());
     cfg.gamma_1 = gammas[0];
@@ -98,7 +104,7 @@ static void randomize_worker_hyperparams(Config& cfg)
     cfg.gamma_3 = gammas[2];
 
     cfg.gamma_4 = draw_scaled_step(2, 6, 10.0);
-    cfg.tabu_size_factor = draw_scaled_step(14, 17, 20.0);
+    cfg.tabu_size_factor = draw_scaled_step(1, 5, 4.0);
 }
 
 static void randomize_worker_adaptive_hyperparams(Config& cfg)
@@ -375,14 +381,24 @@ private:
     std::vector<Entry> solutions;
 };
 
-std::size_t compute_min_pull_elites_per_worker(const Config& cfg)
+std::size_t compute_min_pull_elites_per_worker(const Config& cfg, int world_size)
 {
     constexpr std::size_t kMinClamp = 1;
     constexpr std::size_t kMaxClamp = 30;
 
     const double scaled = cfg.min_pull_elites_per_worker_factor
-        * std::sqrt(static_cast<double>(cfg.customers_count));
+        * std::sqrt(static_cast<double>(cfg.customers_count)) / static_cast<double>(world_size - 1);
     const std::size_t derived = static_cast<std::size_t>(std::ceil(std::max(1.0, scaled)));
+    return std::clamp(derived, kMinClamp, kMaxClamp);
+}
+
+std::size_t compute_elite_pool_size(const Config& cfg, int world_size)
+{
+    constexpr std::size_t kMinClamp = 5;
+    constexpr std::size_t kMaxClamp = 100;
+
+    const double scaled = cfg.elite_pool_factor * static_cast<double>(cfg.customers_count) * std::sqrt(static_cast<double>(world_size - 1));
+    const std::size_t derived = static_cast<std::size_t>(std::ceil(scaled));
     return std::clamp(derived, kMinClamp, kMaxClamp);
 }
 
@@ -394,8 +410,8 @@ Solution run_master(int world_size)
     const Config base_cfg = global_config();
     // Keep a valid fallback so verify() never receives an empty solution.
     Solution best_solution = Solution::initialize();
-    const std::size_t elite_keep_count = std::clamp(static_cast<std::size_t>(base_cfg.elite_pool_factor * static_cast<double>(base_cfg.customers_count)), static_cast<std::size_t>(5), static_cast<std::size_t>(50));
-    const std::size_t min_pull_elites_per_worker = compute_min_pull_elites_per_worker(base_cfg);
+    const std::size_t elite_keep_count = compute_elite_pool_size(base_cfg, world_size);
+    const std::size_t min_pull_elites_per_worker = compute_min_pull_elites_per_worker(base_cfg, world_size);
     ElitePool elite_pool(elite_keep_count);
     const auto t1 = std::chrono::steady_clock::now();
     std::size_t next_seed = base_cfg.seed ? *base_cfg.seed : 1;

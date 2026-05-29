@@ -6,7 +6,7 @@ RUN_SCRIPT="${SCRIPT_DIR}/script.sh"
 DATA_FILE_NAME="$(sed -n 's|.*data/\([^/" ]\+\)\.txt.*|\1|p' "${RUN_SCRIPT}" | head -n 1)"
 
 RUNS="${1:-10}"
-SLEEP_SEC="${2:-0.3}"
+SLEEP_SEC="${2:-3.0}"
 
 OUTPUT_DIR="${SCRIPT_DIR}/statistics"
 mkdir -p "${OUTPUT_DIR}"

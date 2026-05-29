@@ -26,35 +26,25 @@ static void update_global_best_elite(const common::Elite &candidate,
     }
 }
 
-static std::map<int, int> extract_next_map(const common::Elite &e) {
-    std::map<int, int> next_map;
-    for (const auto &el : e.elements) {
+static double count_diff_elite(const common::Elite &a, const common::Elite &b) {
+    std::map<int, int> map_a;
+    std::map<int, int> map_b;
+
+    for (const auto &el : a.elements) {
         for (const auto &trip : el.trips) {
             for (const auto &[cus, nxt] : trip.customers) {
-                next_map[cus] = nxt;
+                map_a[cus] = nxt;
             }
         }
     }
-    return next_map;
-}
 
-static std::map<int, int> extract_vehicle_assignment_map(const common::Elite &e) {
-    std::map<int, int> assign_map;
-
-    for (const auto &el : e.elements) {
+    for (const auto &el : b.elements) {
         for (const auto &trip : el.trips) {
             for (const auto &[cus, nxt] : trip.customers) {
-                (void)nxt;
-                assign_map[cus] = el.type;
+                map_b[cus] = nxt;
             }
         }
     }
-    return assign_map;
-}
-
-static int count_edge_diff_elite(const common::Elite &a, const common::Elite &b) {
-    const auto map_a = extract_next_map(a);
-    const auto map_b = extract_next_map(b);
 
     int diff = 0;
 
@@ -65,61 +55,7 @@ static int count_edge_diff_elite(const common::Elite &a, const common::Elite &b)
         }
     }
 
-    return diff;
-}
-
-static int count_vehicle_assignment_diff_elite(const common::Elite &a, const common::Elite &b) {
-    const auto map_a = extract_vehicle_assignment_map(a);
-    const auto map_b = extract_vehicle_assignment_map(b);
-
-    int diff = 0;
-
-    for (const auto &[cus, assign_a] : map_a) {
-        auto it = map_b.find(cus);
-        if (it == map_b.end() || it->second != assign_a) {
-            ++diff;
-        }
-    }
-
-    return diff;
-}
-
-static double count_diff_elite(
-    const common::Elite &a,
-    const common::Elite &b,
-    double w_edge,
-    double w_assign
-) {
-    if (w_edge == 1.0 && w_assign == 0.0) {
-        const auto edge_diff = count_edge_diff_elite(a, b);
-        const auto edge_map = extract_next_map(a);
-        return edge_map.empty()
-            ? 0.0
-            : static_cast<double>(edge_diff) / static_cast<double>(edge_map.size());
-    }
-
-    if (w_edge == 0.0 && w_assign == 1.0) {
-        const auto assign_diff = count_vehicle_assignment_diff_elite(a, b);
-        const auto assign_map = extract_vehicle_assignment_map(a);
-        return assign_map.empty()
-            ? 0.0
-            : static_cast<double>(assign_diff) / static_cast<double>(assign_map.size());
-    }
-
-    const auto edge_map = extract_next_map(a);
-    const auto assign_map = extract_vehicle_assignment_map(a);
-
-    const double normalized_edge =
-        edge_map.empty()
-            ? 0.0
-            : static_cast<double>(count_edge_diff_elite(a, b)) / static_cast<double>(edge_map.size());
-
-    const double normalized_assign =
-        assign_map.empty()
-            ? 0.0
-            : static_cast<double>(count_vehicle_assignment_diff_elite(a, b)) / static_cast<double>(assign_map.size());
-
-    return w_edge * normalized_edge + w_assign * normalized_assign;
+    return static_cast<double>(diff);
 }
 
 static void push_elite(const common::Elite &e,
@@ -129,17 +65,13 @@ static void push_elite(const common::Elite &e,
     if (elite_pool_count < pool_capacity) {
         elite_pool[elite_pool_count++] = e;
     } else {
-        const Config &cfg = global_config();
-        const double w_edge = cfg.diversity_weight_edge;
-        const double w_assign = cfg.diversity_weight_assignment;
-
         auto choose_replacement = [&](bool prefer_pulled_only) -> int {
             int chosen = 0;
             double min_diff = std::numeric_limits<double>::infinity();
             bool found = false;
             for (int i = 0; i < pool_capacity; ++i) {
                 if (prefer_pulled_only && elite_pool[i].pull_count == 0) continue;
-                const double diff = count_diff_elite(e, elite_pool[i], w_edge, w_assign);
+                const double diff = count_diff_elite(e, elite_pool[i]);
                 if (!found || diff < min_diff) {
                     min_diff = diff;
                     chosen = i;
@@ -219,7 +151,7 @@ static void pull_elite(common::Elite &e, std::vector<common::Elite> &elite_pool,
             int count = 0;
             for (int other = 0; other < elite_pool_count; ++other) {
                 if (other == idx) continue;
-                score_sum += count_diff_elite(elite_pool[idx], elite_pool[other], cfg.diversity_weight_edge, cfg.diversity_weight_assignment);
+                score_sum += count_diff_elite(elite_pool[idx], elite_pool[other]);
                 ++count;
             }
             const double score = count > 0 ? score_sum / static_cast<double>(count) : 0.0;
@@ -248,10 +180,28 @@ static void pull_elite(common::Elite &e, std::vector<common::Elite> &elite_pool,
     e = picked;
 }
 
+std::size_t compute_elite_pool_size(const Config& cfg, int world_size) {
+    constexpr std::size_t kMinClamp = 5;
+    constexpr std::size_t kMaxClamp = 50;
+
+    const double scaled = cfg.elite_pool_factor * static_cast<double>(cfg.customers_count) * std::sqrt(static_cast<double>(world_size - 1));
+    const std::size_t derived = static_cast<std::size_t>(std::ceil(scaled));
+    return std::clamp(derived, kMinClamp, kMaxClamp);
+}
+
+std::size_t compute_min_pull_elites_per_worker(const Config& cfg, int world_size) {
+    constexpr std::size_t kMinClamp = 1;
+    constexpr std::size_t kMaxClamp = 30;
+
+    const double scaled = cfg.min_pull_elites_per_worker_factor * std::sqrt(static_cast<double>(cfg.customers_count)) / static_cast<double>(world_size - 1);
+    const std::size_t derived = static_cast<std::size_t>(std::ceil(scaled));
+    return std::clamp(derived, kMinClamp, kMaxClamp);
+}
+
 void master(int size) {
     const Config &cfg = global_config();
     int elite_pool_count = 0;
-    const std::size_t elite_keep_count = std::clamp(static_cast<std::size_t>(cfg.elite_pool_factor * static_cast<double>(cfg.customers_count)), static_cast<std::size_t>(5), static_cast<std::size_t>(50));
+    const std::size_t elite_keep_count = compute_elite_pool_size(cfg, size);
     std::vector<common::Elite> elite_pool(elite_keep_count);
     std::vector<char> worker_done(size, 0);
     int done_workers = 0;
@@ -260,15 +210,7 @@ void master(int size) {
 
     MPI_Status status;
     int iterations = 0;
-    auto compute_min_pull = [&](const Config &c) -> int {
-        const double factor = c.min_pull_elites_per_worker_factor;
-        const double scaled = factor * std::sqrt(static_cast<double>(c.customers_count));
-        const int derived = static_cast<int>(std::ceil(std::max(1.0, scaled)));
-        const int min_clamp = 1;
-        const int max_clamp = 50;
-        return std::clamp(derived, min_clamp, max_clamp);
-    };
-    const int min_pull_elites_per_worker = compute_min_pull(cfg);
+    const int min_pull_elites_per_worker = compute_min_pull_elites_per_worker(cfg, size);
     std::vector<int> worker_pull_requests(size, 0);
     std::vector<char> worker_running(size, 0);
     for (int r = 1; r < size; ++r) worker_running[r] = 1;
