@@ -51,3 +51,13 @@ II. Bảng so sánh
         - Số lượng customer:
             + Kết quả (trung vị)
             + Thời gian chạy (trung bình)
+
+III. 30/05/2026
+    1. Chạy lại với cấu hình truck, drone của bài báo tuần tự
+    2. Tạo các so sánh theo thứ tự:
+        - Push elite với tham số độ dài tìm kiếm (với elite_pool_factor) 
+        - Pull elite với các chiến lược khác nhau
+        - Chạy với chiến lược dynamic tabu params cho các worker
+            -> Chọn chiến lược
+        - Đồ thị mô tả quá trình chạy (kết quả của elite tốt nhất tìm được theo thời gian chạy)
+        - Chạy với số worker khác nhau
