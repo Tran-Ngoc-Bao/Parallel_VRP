@@ -1,9 +1,0 @@
-[
-  {
-    "speed_type": "high",
-    "range_type": "high",
-    "capacity [kg]": 5.0,
-    "FixedTime (s)": 10000.0,
-    "V_max (m/s)": 15.0
-  }
-]

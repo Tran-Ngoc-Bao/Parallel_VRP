@@ -862,7 +862,7 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* 
                         record_new(current, iteration, adaptive.segment);
                     }
                     update_violations(current);
-                    logger.log(current, Neighborhood::EjectionChain, ec_tabu);
+                    // logger.log(current, Neighborhood::EjectionChain, ec_tabu);
                 }
             } else {
                 update_violations(current);
@@ -896,11 +896,11 @@ Solution Solution::tabu_search(Solution root, Logger& logger, const EliteHooks* 
                         record_new(current, iteration, adaptive.segment);
                     }
                     update_violations(current);
-                    logger.log(current, Neighborhood::EjectionChain, ec_tabu);
+                    // logger.log(current, Neighborhood::EjectionChain, ec_tabu);
                 }
             } else {
                 update_violations(current);
-                logger.log(current, nb, tabu_lists[neighborhood_idx]);
+                // logger.log(current, nb, tabu_lists[neighborhood_idx]);
             }
         }
 

@@ -10,7 +10,7 @@ mpirun --allow-run-as-root -np 10 \
     "${SCRIPT_DIR}/../../../data/200.40.4.txt" \
     --adaptive-iterations 5 \
     --adaptive-pull-elite-segments 4 \
-    --elite-pull-strategy pullcount \
+    --elite-pull-strategy rank \
     --min-pull-elites-per-worker-factor 6 \
     --elite-pool-factor 0.03 \
     --randomize-worker-hyperparams \
