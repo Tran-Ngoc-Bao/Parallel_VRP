@@ -2,14 +2,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="${SCRIPT_DIR}/build"
 
-DEFAULT_DATA_PREFIX="6.5"
-PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../../data/soict-2025/${DEFAULT_DATA_PREFIX}.1.txt}"
+cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}"
+cmake --build "${BUILD_DIR}"
 
-cmake --build "${SCRIPT_DIR}/build"
+DEFAULT_DATA_PREFIX="50."
+PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../../data/soict-2025/${DEFAULT_DATA_PREFIX}10.1.txt}"
 
-mpirun --allow-run-as-root -np 10 \
-    "${SCRIPT_DIR}/build/tabu_search" run \
+mpirun --allow-run-as-root -np 8 \
+    "${BUILD_DIR}/tabu_search" run \
     "${PROBLEM_FILE}" \
     --adaptive-iterations 5 \
     --adaptive-pull-elite-segments 4 \
