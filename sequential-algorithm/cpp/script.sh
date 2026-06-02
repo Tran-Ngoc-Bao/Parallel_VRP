@@ -13,7 +13,7 @@ cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}"
 cmake --build "${BUILD_DIR}"
 
 DEFAULT_DATA_PREFIX="200.40"
-PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../data/${DEFAULT_DATA_PREFIX}.1.txt}"
+PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../data/soict-2025/${DEFAULT_DATA_PREFIX}.1.txt}"
 
 "${BUILD_DIR}/tabu_search" run \
     "${PROBLEM_FILE}" \

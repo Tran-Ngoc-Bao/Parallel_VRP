@@ -7,13 +7,13 @@ RUN_SCRIPT="${SCRIPT_DIR}/script.sh"
 DEFAULT_DATA_PREFIX="$(sed -n 's/^DEFAULT_DATA_PREFIX="\([^"]\+\)"$/\1/p' "${RUN_SCRIPT}" | head -n 1)"
 DATA_PREFIX="${1:-${DEFAULT_DATA_PREFIX}}"
 RUNS="${2:-5}"
-SLEEP_SEC="${3:-2.0}"
+SLEEP_SEC="${3:-0.0}"
 
 DATA_FILES=(
-    "${SCRIPT_DIR}/../../data/${DATA_PREFIX}.1.txt"
-    "${SCRIPT_DIR}/../../data/${DATA_PREFIX}.2.txt"
-    "${SCRIPT_DIR}/../../data/${DATA_PREFIX}.3.txt"
-    "${SCRIPT_DIR}/../../data/${DATA_PREFIX}.4.txt"
+    "${SCRIPT_DIR}/../../data/soict-2025/${DATA_PREFIX}.1.txt"
+    "${SCRIPT_DIR}/../../data/soict-2025/${DATA_PREFIX}.2.txt"
+    "${SCRIPT_DIR}/../../data/soict-2025/${DATA_PREFIX}.3.txt"
+    "${SCRIPT_DIR}/../../data/soict-2025/${DATA_PREFIX}.4.txt"
 )
 
 OUTPUT_DIR="${SCRIPT_DIR}/statistics"
