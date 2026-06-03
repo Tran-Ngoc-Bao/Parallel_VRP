@@ -68,6 +68,28 @@ BEST_FILE="${DATA_PREFIX}"
     echo "data_prefix=${DATA_PREFIX}"
     echo "runs=${RUNS}"
     echo "sleep_sec=${SLEEP_SEC}"
+    
+    RUN_SCRIPT_CMD="$(sed -n '/mpirun/,$p' "${RUN_SCRIPT}" | tr '\n' ' ' | sed 's/\\ //g' | sed -E 's/ +/ /g' | sed 's/^ *//; s/ *$//')"
+    MPINP="$(echo "${RUN_SCRIPT_CMD}" | awk '{for(i=1;i<=NF;i++) if($i=="-np"){print $(i+1); exit}}')"
+    get_opt() {
+        echo "${RUN_SCRIPT_CMD}" | awk -v opt="$1" '{for(i=1;i<=NF;i++) if($i==opt){print $(i+1); exit}}'
+    }
+
+    ADAPTIVE_ITERATIONS="$(get_opt --adaptive-iterations)"
+    ADAPTIVE_PULL_ELITE_SEGMENTS="$(get_opt --adaptive-pull-elite-segments)"
+    ELITE_PULL_STRATEGY="$(get_opt --elite-pull-strategy)"
+    MIN_PULL_ELITES_PER_WORKER_FACTOR="$(get_opt --min-pull-elites-per-worker-factor)"
+    ELITE_POOL_FACTOR="$(get_opt --elite-pool-factor)"
+    RANDOMIZE_WORKER_HYPARAMS="$(echo "${RUN_SCRIPT_CMD}" | grep -q -- '# --randomize-worker-hyperparams' && echo false || echo true)"
+
+    echo "run_script_cmd=${RUN_SCRIPT_CMD}"
+    echo "mpirun_np=${MPINP}"
+    echo "adaptive_iterations=${ADAPTIVE_ITERATIONS}"
+    echo "adaptive_pull_elite_segments=${ADAPTIVE_PULL_ELITE_SEGMENTS}"
+    echo "elite_pull_strategy=${ELITE_PULL_STRATEGY}"
+    echo "min_pull_elites_per_worker_factor=${MIN_PULL_ELITES_PER_WORKER_FACTOR}"
+    echo "elite_pool_factor=${ELITE_POOL_FACTOR}"
+    echo "randomize_worker_hyperparams=${RANDOMIZE_WORKER_HYPARAMS}"
     echo "average_result=${AVG_RESULT}"
     echo "average_total_time_sec=${AVG_TIME}"
     echo "best_result=${BEST_RESULT}"
