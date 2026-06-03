@@ -394,7 +394,7 @@ std::size_t compute_min_pull_elites_per_worker(const Config& cfg, int world_size
 
 std::size_t compute_elite_pool_size(const Config& cfg, int world_size)
 {
-    constexpr std::size_t kMinClamp = 5;
+    constexpr std::size_t kMinClamp = 3;
     constexpr std::size_t kMaxClamp = 100;
 
     const double scaled = cfg.elite_pool_factor * static_cast<double>(cfg.customers_count) * std::sqrt(static_cast<double>(world_size - 1));

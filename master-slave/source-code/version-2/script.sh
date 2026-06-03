@@ -7,15 +7,15 @@ BUILD_DIR="${SCRIPT_DIR}/build"
 cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}"
 cmake --build "${BUILD_DIR}"
 
-DEFAULT_DATA_PREFIX="50."
-PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../../data/soict-2025/${DEFAULT_DATA_PREFIX}10.1.txt}"
+DEFAULT_DATA_PREFIX="200"
+PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../../data/soict-2025/${DEFAULT_DATA_PREFIX}.40.2.txt}"
 
-mpirun --allow-run-as-root -np 8 \
+mpirun --allow-run-as-root -np 10 \
     "${BUILD_DIR}/tabu_search" run \
     "${PROBLEM_FILE}" \
     --adaptive-iterations 5 \
     --adaptive-pull-elite-segments 4 \
-    --elite-pull-strategy rank \
+    --elite-pull-strategy random \
     --min-pull-elites-per-worker-factor 6 \
     --elite-pool-factor 0.03 \
     --randomize-worker-hyperparams \

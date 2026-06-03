@@ -5,11 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_SCRIPT="${SCRIPT_DIR}/script.sh"
 
 DEFAULT_DATA_PREFIX="$(sed -n 's/^DEFAULT_DATA_PREFIX="\([^"]\+\)"$/\1/p' "${RUN_SCRIPT}" | head -n 1)"
-DATA_PREFIX="${1:-${DEFAULT_DATA_PREFIX}}"
+DATA_PREFIX="${1:-${DEFAULT_DATA_PREFIX}.}"
 RUNS="${2:-5}"
 SLEEP_SEC="${3:-0.0}"
 
-# Discover data files for the given DATA_PREFIX (e.g. "200." or "50.")
 DATA_FILES=( $(ls -1 ${SCRIPT_DIR}/../../../data/soict-2025/${DATA_PREFIX}*.txt 2>/dev/null | sort) )
 
 if [ ${#DATA_FILES[@]} -eq 0 ]; then
@@ -45,7 +44,6 @@ done
 AVG_RESULT="$(awk -F, 'NR>1 {sum+=$3; n++} END {if (n>0) printf "%.6f", sum/n; else print "NaN"}' "${CSV_FILE}")"
 AVG_TIME="$(awk -F, 'NR>1 {sum+=$4; n++} END {if (n>0) printf "%.2f", sum/n; else print "NaN"}' "${CSV_FILE}")"
 
-# Compute per-file mean result and mean time, then pick file with minimal mean result
 BEST_INFO="$(awk -F, '
     NR>1 {
         f=$1

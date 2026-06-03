@@ -16,7 +16,7 @@ I. 11/04/2026
         - Song song để chọn cách move tốt nhất cho lần lặp hiện tại
             (Lặp tất cả khách hàng trên tất cả các truck/drone để chọn cách move tốt nhất)
 
-II. Bảng so sánh
+II. Bảng so sánh lần 1
     1. Các chiến lược đã cài đặt:
         - Ngẫu nhiên:
             + Các worker cùng 1 seed -> Áp dụng: Mỗi worker 1 seed khác nhau
@@ -55,9 +55,20 @@ II. Bảng so sánh
 III. 30/05/2026
     1. Chạy lại với cấu hình truck, drone của bài báo tuần tự
     2. Tạo các so sánh theo thứ tự:
-        - Push elite với tham số độ dài tìm kiếm (với elite_pool_factor) 
+        - Push elite với tham số độ dài tìm kiếm (với elite_pool_factor)
         - Pull elite với các chiến lược khác nhau
         - Chạy với chiến lược dynamic tabu params cho các worker
             -> Chọn chiến lược
         - Đồ thị mô tả quá trình chạy (kết quả của elite tốt nhất tìm được theo thời gian chạy)
         - Chạy với số worker khác nhau
+
+IV. Bảng so sánh lần 2
+    - Không tính được độ lệch chuẩn, vì: với customers = 200
+        + Có các bộ dataset 200.10, 200.20, 200.30, 200.40, kết quả của customers = 200 sẽ cộng trung bình kết quả của các bộ đó lại
+        + Độ lớn tọa độ đầu vào rất lệch nhau giữa các bộ (200.20 gấp đôi 200.10, 200.30 gấp ba 200.10, ...)
+            -> Kết quả giữa các bộ rất lệch nhau
+            -> Độ lệch chuẩn rất lớn, không phản ánh đúng công thức tính kết quả của customers = 200
+    1. Bảng 1: Push elite với tham số độ dài tìm kiếm (với elite_pool_factor)
+        - adaptive-iterations: 4, 5, 6, 7
+        - adaptive-pull-elite-segments: 3, 4, 5
+        - elite-pool-factor: 0.02, 0.03, 0.04
