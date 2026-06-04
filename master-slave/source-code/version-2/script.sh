@@ -10,7 +10,7 @@ PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../../data/soict-2025/${DEFAULT_DATA_PREFIX}
 mpirun --allow-run-as-root -np 10 \
     "${BUILD_DIR}/tabu_search" run \
     "${PROBLEM_FILE}" \
-    --adaptive-iterations 5 \
+    --adaptive-iterations 4 \
     --adaptive-pull-elite-segments 4 \
     --elite-pull-strategy random \
     --min-pull-elites-per-worker-factor 6 \
