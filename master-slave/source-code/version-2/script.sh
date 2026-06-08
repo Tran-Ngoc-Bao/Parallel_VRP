@@ -7,12 +7,31 @@ BUILD_DIR="${SCRIPT_DIR}/build"
 DEFAULT_DATA_PREFIX="200"
 PROBLEM_FILE="${1:-${SCRIPT_DIR}/../../../data/soict-2025/${DEFAULT_DATA_PREFIX}.40.2.txt}"
 
-mpirun --allow-run-as-root -np 10 \
-    "${BUILD_DIR}/tabu_search" run \
-    "${PROBLEM_FILE}" \
-    --adaptive-iterations 4 \
-    --adaptive-pull-elite-segments 4 \
-    --elite-pull-strategy random \
-    --min-pull-elites-per-worker-factor 6 \
-    --elite-pool-factor 0.03 \
-    # --randomize-worker-hyperparams \
+ADAPTIVE_ITERATIONS="${ADAPTIVE_ITERATIONS:-6}"
+ADAPTIVE_PULL_ELITE_SEGMENTS="${ADAPTIVE_PULL_ELITE_SEGMENTS:-4}"
+ELITE_PULL_STRATEGY="${ELITE_PULL_STRATEGY:-random}"
+MIN_PULL_ELITES_PER_WORKER_FACTOR="${MIN_PULL_ELITES_PER_WORKER_FACTOR:-5}"
+ELITE_POOL_FACTOR="${ELITE_POOL_FACTOR:-0.03}"
+RANDOMIZE_WORKER_HYPERPARAMS="${RANDOMIZE_WORKER_HYPERPARAMS:-0}"
+PREFER_PULLED="${PREFER_PULLED:-0}"
+
+CMD=(
+  mpirun --allow-run-as-root -np 10
+  "${BUILD_DIR}/tabu_search" run
+  "${PROBLEM_FILE}"
+  --adaptive-iterations "${ADAPTIVE_ITERATIONS}"
+  --adaptive-pull-elite-segments "${ADAPTIVE_PULL_ELITE_SEGMENTS}"
+  --elite-pull-strategy "${ELITE_PULL_STRATEGY}"
+  --min-pull-elites-per-worker-factor "${MIN_PULL_ELITES_PER_WORKER_FACTOR}"
+  --elite-pool-factor "${ELITE_POOL_FACTOR}"
+)
+
+if [ "${RANDOMIZE_WORKER_HYPERPARAMS}" = "1" ]; then
+  CMD+=(--randomize-worker-hyperparams)
+fi
+
+if [ "${PREFER_PULLED}" = "1" ]; then
+  CMD+=(--prefer-pulled)
+fi
+
+"${CMD[@]}"

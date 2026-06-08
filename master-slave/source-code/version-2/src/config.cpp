@@ -316,6 +316,7 @@ Config build_config(const cli::RunArgs& args)
     cfg.min_pull_elites_per_worker_factor = args.min_pull_elites_per_worker_factor;
     cfg.randomize_worker_hyperparams = args.randomize_worker_hyperparams;
     cfg.randomize_worker_adaptive_hyperparams = args.randomize_worker_adaptive_hyperparams;
+    cfg.prefer_pulled             = args.prefer_pulled;
     return cfg;
 }
 
@@ -469,6 +470,7 @@ nlohmann::json config_to_json(const Config& cfg) {
     j["min_pull_elites_per_worker_factor"] = cfg.min_pull_elites_per_worker_factor;
     j["randomize_worker_hyperparams"]   = cfg.randomize_worker_hyperparams;
     j["randomize_worker_adaptive_hyperparams"] = cfg.randomize_worker_adaptive_hyperparams;
+    j["prefer_pulled"]             = cfg.prefer_pulled;
     return j;
 }
 
@@ -626,6 +628,7 @@ Config build_config_from_json(const std::string& json_path)
     cfg.min_pull_elites_per_worker_factor = j.at("min_pull_elites_per_worker_factor").get<double>();
     cfg.randomize_worker_hyperparams = j.at("randomize_worker_hyperparams").get<bool>();
     cfg.randomize_worker_adaptive_hyperparams = j.at("randomize_worker_adaptive_hyperparams").get<bool>();
+    cfg.prefer_pulled             = j.at("prefer_pulled").get<bool>();
     return cfg;
 }
 

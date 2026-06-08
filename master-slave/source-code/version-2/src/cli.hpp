@@ -90,6 +90,7 @@ struct RunArgs {
     double        min_pull_elites_per_worker_factor = 1.0;
     bool          randomize_worker_hyperparams = false;
     bool          randomize_worker_adaptive_hyperparams = false;
+    bool          prefer_pulled              = false;
 };
 
 struct EvaluateArgs {

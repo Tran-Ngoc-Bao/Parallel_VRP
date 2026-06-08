@@ -53,6 +53,7 @@ int main(int argc, char** argv)
     run_cmd->add_option("--min-pull-elites-per-worker-factor", args.run.min_pull_elites_per_worker_factor);
     run_cmd->add_flag  ("--randomize-worker-hyperparams", args.run.randomize_worker_hyperparams);
     run_cmd->add_flag  ("--randomize-worker-adaptive-hyperparams", args.run.randomize_worker_adaptive_hyperparams);
+    run_cmd->add_flag  ("--prefer-pulled",             args.run.prefer_pulled);
 
     std::map<std::string, cli::ElitePullStrategy> elite_pull_map{
         {"random",    cli::ElitePullStrategy::Random},

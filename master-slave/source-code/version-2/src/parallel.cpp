@@ -232,7 +232,7 @@ count_diff_elite(const Solution& a, const Solution& b)
 struct ElitePool {
     explicit ElitePool(std::size_t keep_count) : keep_count(keep_count) {}
 
-    void consider(Solution candidate, int source_worker)
+    void consider(Solution candidate, int source_worker, bool prefer_pulled_flag)
     {
         if (!is_valid_solution_for_exchange(candidate)) {
             return;
@@ -262,8 +262,8 @@ struct ElitePool {
                 return found ? chosen_idx : std::size_t{0};
             };
 
-            std::size_t most_similar_idx = choose_replacement(true);
-            if (solutions[most_similar_idx].pull_count == 0) {
+            std::size_t most_similar_idx = choose_replacement(prefer_pulled_flag);
+            if (prefer_pulled_flag && solutions[most_similar_idx].pull_count == 0) {
                 most_similar_idx = choose_replacement(false);
             }
 
@@ -408,6 +408,7 @@ Solution run_master(int world_size)
 {
     const auto t0 = std::chrono::steady_clock::now();
     const Config base_cfg = global_config();
+    bool prefer_pulled_flag = base_cfg.prefer_pulled;
     // Keep a valid fallback so verify() never receives an empty solution.
     Solution best_solution = Solution::initialize();
     const std::size_t elite_keep_count = compute_elite_pool_size(base_cfg, world_size);
@@ -458,7 +459,7 @@ Solution run_master(int world_size)
                 if (!best_solution.feasible || elite.cost() < best_solution.cost()) {
                     best_solution = elite;
                 }
-                elite_pool.consider(std::move(elite), worker_rank);
+                elite_pool.consider(std::move(elite), worker_rank, prefer_pulled_flag);
             }
         }
 
@@ -503,7 +504,7 @@ Solution run_master(int world_size)
                 best_solution = result;
             }
             if (is_valid_solution_for_exchange(result)) {
-                elite_pool.consider(std::move(result), worker_rank);
+                elite_pool.consider(std::move(result), worker_rank, prefer_pulled_flag);
             }
             worker_running[static_cast<std::size_t>(worker_rank)] = false;
             --active_workers;
