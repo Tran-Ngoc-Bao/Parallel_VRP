@@ -16,9 +16,16 @@ while read -r prefix ai seg strat minpull pool rand prefer_pulled workers; do
   NUM_WORKERS="$workers" \
   bash "${BENCHMARK_RUN}"
 done <<'EOF'
-200 6 4 rank 5 0.03 1 1 10
+200 6 4 rank 6 0.03 1 1 7
+200 6 4 rank 7 0.03 1 1 7
+200 6 4 rank 8 0.03 1 1 7
+200 6 4 rank 6 0.03 1 1 8
+200 6 4 rank 7 0.03 1 1 8
+200 6 4 rank 8 0.03 1 1 8
+200 6 4 rank 6 0.03 1 1 9
+200 6 4 rank 7 0.03 1 1 9
+200 6 4 rank 8 0.03 1 1 9
 200 6 4 rank 6 0.03 1 1 10
 200 6 4 rank 7 0.03 1 1 10
 200 6 4 rank 8 0.03 1 1 10
-200 6 4 rank 9 0.03 1 1 10
 EOF

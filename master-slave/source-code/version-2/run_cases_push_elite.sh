@@ -4,7 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCHMARK_RUN="${SCRIPT_DIR}/benchmark_runs.sh"
 
-while read -r ai seg strat minpull pool rand prefer_pulled; do
+while read -r prefix ai seg strat minpull pool rand prefer_pulled workers; do
+  DEFAULT_DATA_PREFIX="$prefix" \
   ADAPTIVE_ITERATIONS="$ai" \
   ADAPTIVE_PULL_ELITE_SEGMENTS="$seg" \
   ELITE_PULL_STRATEGY="$strat" \
@@ -12,60 +13,61 @@ while read -r ai seg strat minpull pool rand prefer_pulled; do
   ELITE_POOL_FACTOR="$pool" \
   RANDOMIZE_WORKER_HYPERPARAMS="$rand" \
   PREFER_PULLED="$prefer_pulled" \
+  NUM_WORKERS="$workers" \
   bash "${BENCHMARK_RUN}"
 done <<'EOF'
-4 3 random 6 0.02 0 0
-4 3 random 6 0.03 0 0
-4 3 random 6 0.04 0 0
-4 4 random 6 0.02 0 0
-4 4 random 6 0.03 0 0
-4 4 random 6 0.04 0 0
-4 5 random 6 0.02 0 0
-4 5 random 6 0.03 0 0
-4 5 random 6 0.04 0 0
-6 3 random 6 0.02 0 0
-6 3 random 6 0.03 0 0
-6 3 random 6 0.04 0 0
-6 4 random 6 0.02 0 0
-6 4 random 6 0.03 0 0
-6 4 random 6 0.04 0 0
-6 5 random 6 0.02 0 0
-6 5 random 6 0.03 0 0
-6 5 random 6 0.04 0 0
-8 3 random 6 0.02 0 0
-8 3 random 6 0.03 0 0
-8 3 random 6 0.04 0 0
-8 4 random 6 0.02 0 0
-8 4 random 6 0.03 0 0
-8 4 random 6 0.04 0 0
-8 5 random 6 0.02 0 0
-8 5 random 6 0.03 0 0
-8 5 random 6 0.04 0 0
-4 3 random 6 0.02 0 1
-4 3 random 6 0.03 0 1
-4 3 random 6 0.04 0 1
-4 4 random 6 0.02 0 1
-4 4 random 6 0.03 0 1
-4 4 random 6 0.04 0 1
-4 5 random 6 0.02 0 1
-4 5 random 6 0.03 0 1
-4 5 random 6 0.04 0 1
-6 3 random 6 0.02 0 1
-6 3 random 6 0.03 0 1
-6 3 random 6 0.04 0 1
-6 4 random 6 0.02 0 1
-6 4 random 6 0.03 0 1
-6 4 random 6 0.04 0 1
-6 5 random 6 0.02 0 1
-6 5 random 6 0.03 0 1
-6 5 random 6 0.04 0 1
-8 3 random 6 0.02 0 1
-8 3 random 6 0.03 0 1
-8 3 random 6 0.04 0 1
-8 4 random 6 0.02 0 1
-8 4 random 6 0.03 0 1
-8 4 random 6 0.04 0 1
-8 5 random 6 0.02 0 1
-8 5 random 6 0.03 0 1
-8 5 random 6 0.04 0 1
+100 4 3 random 6 0.02 0 0 10
+100 4 3 random 6 0.03 0 0 10
+100 4 3 random 6 0.04 0 0 10
+100 4 4 random 6 0.02 0 0 10
+100 4 4 random 6 0.03 0 0 10
+100 4 4 random 6 0.04 0 0 10
+100 4 5 random 6 0.02 0 0 10
+100 4 5 random 6 0.03 0 0 10
+100 4 5 random 6 0.04 0 0 10
+100 6 3 random 6 0.02 0 0 10
+100 6 3 random 6 0.03 0 0 10
+100 6 3 random 6 0.04 0 0 10
+100 6 4 random 6 0.02 0 0 10
+100 6 4 random 6 0.03 0 0 10
+100 6 4 random 6 0.04 0 0 10
+100 6 5 random 6 0.02 0 0 10
+100 6 5 random 6 0.03 0 0 10
+100 6 5 random 6 0.04 0 0 10
+100 8 3 random 6 0.02 0 0 10
+100 8 3 random 6 0.03 0 0 10
+100 8 3 random 6 0.04 0 0 10
+100 8 4 random 6 0.02 0 0 10
+100 8 4 random 6 0.03 0 0 10
+100 8 4 random 6 0.04 0 0 10
+100 8 5 random 6 0.02 0 0 10
+100 8 5 random 6 0.03 0 0 10
+100 8 5 random 6 0.04 0 0 10
+100 4 3 random 6 0.02 0 1 10
+100 4 3 random 6 0.03 0 1 10
+100 4 3 random 6 0.04 0 1 10
+100 4 4 random 6 0.02 0 1 10
+100 4 4 random 6 0.03 0 1 10
+100 4 4 random 6 0.04 0 1 10
+100 4 5 random 6 0.02 0 1 10
+100 4 5 random 6 0.03 0 1 10
+100 4 5 random 6 0.04 0 1 10
+100 6 3 random 6 0.02 0 1 10
+100 6 3 random 6 0.03 0 1 10
+100 6 3 random 6 0.04 0 1 10
+100 6 4 random 6 0.02 0 1 10
+100 6 4 random 6 0.03 0 1 10
+100 6 4 random 6 0.04 0 1 10
+100 6 5 random 6 0.02 0 1 10
+100 6 5 random 6 0.03 0 1 10
+100 6 5 random 6 0.04 0 1 10
+100 8 3 random 6 0.02 0 1 10
+100 8 3 random 6 0.03 0 1 10
+100 8 3 random 6 0.04 0 1 10
+100 8 4 random 6 0.02 0 1 10
+100 8 4 random 6 0.03 0 1 10
+100 8 4 random 6 0.04 0 1 10
+100 8 5 random 6 0.02 0 1 10
+100 8 5 random 6 0.03 0 1 10
+100 8 5 random 6 0.04 0 1 10
 EOF
