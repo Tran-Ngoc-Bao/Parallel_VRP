@@ -4,13 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_SCRIPT="${SCRIPT_DIR}/script.sh"
 
-DEFAULT_DATA_PREFIX_FROM_FILE="$(sed -n 's/^DEFAULT_DATA_PREFIX=\"\${DEFAULT_DATA_PREFIX:-\([^\}]\+\)}\"$/\1/p' "${RUN_SCRIPT}" | head -n 1)"
+DEFAULT_DATA_PREFIX_FROM_FILE="$(
+  sed -n 's/^DEFAULT_DATA_PREFIX=\"\${DEFAULT_DATA_PREFIX:-\([^\}]\+\)}\"$/\1/p' "${RUN_SCRIPT}" | head -n 1
+)"
 DEFAULT_DATA_PREFIX="${DEFAULT_DATA_PREFIX:-${DEFAULT_DATA_PREFIX_FROM_FILE}}"
 DATA_PREFIX="${1:-${DEFAULT_DATA_PREFIX}.}"
 RUNS="${2:-5}"
 SLEEP_SEC="${3:-1.0}"
 
-DATA_FILES=( $(ls -1 ${SCRIPT_DIR}/../../../data/soict-2025/${DATA_PREFIX}*.txt 2>/dev/null | sort) )
+DATA_FILES=( $(ls -1 "${SCRIPT_DIR}"/../../../data/soict-2025/"${DATA_PREFIX}"*.txt 2>/dev/null | sort) )
 
 if [ ${#DATA_FILES[@]} -eq 0 ]; then
     echo "No data files found for prefix ${DATA_PREFIX}" >&2
@@ -20,7 +22,7 @@ fi
 OUTPUT_DIR="${SCRIPT_DIR}/statistics"
 mkdir -p "${OUTPUT_DIR}"
 
-STAMP="$(date +%Y%m%d-%H%M%S)"
+STAMP="$(TZ='Asia/Bangkok' date +%Y%m%d-%H%M%S)"
 CSV_FILE="${OUTPUT_DIR}/benchmark-${DATA_PREFIX}-${STAMP}.csv"
 SUMMARY_FILE="${OUTPUT_DIR}/benchmark-${DATA_PREFIX}-${STAMP}-summary.txt"
 
@@ -46,57 +48,48 @@ AVG_RESULT="$(awk -F, 'NR>1 {sum+=$3; n++} END {if (n>0) printf "%.6f", sum/n; e
 AVG_TIME="$(awk -F, 'NR>1 {sum+=$4; n++} END {if (n>0) printf "%.2f", sum/n; else print "NaN"}' "${CSV_FILE}")"
 
 BEST_INFO="$(awk -F, '
-    NR>1 {
-        f=$1
-        val=$3+0
-        t=$4+0
-        if ((f in minval) == 0) { minval[f]=val; mintime[f]=t }
-        else if (val < minval[f]) { minval[f]=val; mintime[f]=t }
-    }
-    END {
-        sum=0; sumt=0; m=0
-        for (f in minval) { sum += minval[f]; sumt += mintime[f]; m++ }
-        if (m>0) printf "%d,%.6f,%.2f", m, sum/m, sumt/m
-    }' "${CSV_FILE}")"
+NR>1 {
+    f=$1
+    val=$3+0
+    t=$4+0
+    if ((f in minval) == 0) { minval[f]=val; mintime[f]=t }
+    else if (val < minval[f]) { minval[f]=val; mintime[f]=t }
+}
+END {
+    sum=0; sumt=0; m=0
+    for (f in minval) { sum += minval[f]; sumt += mintime[f]; m++ }
+    if (m>0) printf "%d,%.6f,%.2f", m, sum/m, sumt/m
+}' "${CSV_FILE}")"
 
 FILE_COUNT="${BEST_INFO%%,*}"
 REST="${BEST_INFO#*,}"
 BEST_RESULT="${REST%%,*}"
 BEST_TIME="${REST#*,}"
-BEST_FILE="${DATA_PREFIX}"
+
+MPINP="${NUM_WORKERS:-10}"
+ADAPTIVE_ITERATIONS_VALUE="${ADAPTIVE_ITERATIONS:-6}"
+ADAPTIVE_PULL_ELITE_SEGMENTS_VALUE="${ADAPTIVE_PULL_ELITE_SEGMENTS:-4}"
+ELITE_PULL_STRATEGY_VALUE="${ELITE_PULL_STRATEGY:-random}"
+MIN_PULL_ELITES_PER_WORKER_FACTOR_VALUE="${MIN_PULL_ELITES_PER_WORKER_FACTOR:-6}"
+ELITE_POOL_FACTOR_VALUE="${ELITE_POOL_FACTOR:-0.03}"
+RANDOMIZE_WORKER_HYPERPARAMS_VALUE="$([ "${RANDOMIZE_WORKER_HYPERPARAMS:-0}" = "1" ] && echo true || echo false)"
+PREFER_PULLED_VALUE="$([ "${PREFER_PULLED:-1}" = "1" ] && echo true || echo false)"
 
 {
     echo "data_prefix=${DATA_PREFIX}"
     echo "runs=${RUNS}"
     echo "sleep_sec=${SLEEP_SEC}"
-    
-    RUN_SCRIPT_CMD="$(sed -n '/mpirun/,$p' "${RUN_SCRIPT}" | tr '\n' ' ' | sed 's/\\ //g' | sed -E 's/ +/ /g' | sed 's/^ *//; s/ *$//')"
-    MPINP="$(echo "${RUN_SCRIPT_CMD}" | awk '{for(i=1;i<=NF;i++) if($i=="-np"){print $(i+1); exit}}')"
-    get_opt() {
-        echo "${RUN_SCRIPT_CMD}" | awk -v opt="$1" '{for(i=1;i<=NF;i++) if($i==opt){print $(i+1); exit}}'
-    }
-
-    ADAPTIVE_ITERATIONS="$(get_opt --adaptive-iterations)"
-    ADAPTIVE_PULL_ELITE_SEGMENTS="$(get_opt --adaptive-pull-elite-segments)"
-    ELITE_PULL_STRATEGY="$(get_opt --elite-pull-strategy)"
-    MIN_PULL_ELITES_PER_WORKER_FACTOR="$(get_opt --min-pull-elites-per-worker-factor)"
-    ELITE_POOL_FACTOR="$(get_opt --elite-pool-factor)"
-    RANDOMIZE_WORKER_HYPARAMS="$(echo "${RUN_SCRIPT_CMD}" | grep -q -- '--randomize-worker-hyperparams' && echo true || echo false)"
-    PREFER_PULLED="$(echo "${RUN_SCRIPT_CMD}" | grep -q -- '--prefer-pulled' && echo true || echo false)"
-
-    echo "run_script_cmd=${RUN_SCRIPT_CMD}"
     echo "mpirun_np=${MPINP}"
-    echo "adaptive_iterations=${ADAPTIVE_ITERATIONS}"
-    echo "adaptive_pull_elite_segments=${ADAPTIVE_PULL_ELITE_SEGMENTS}"
-    echo "elite_pull_strategy=${ELITE_PULL_STRATEGY}"
-    echo "min_pull_elites_per_worker_factor=${MIN_PULL_ELITES_PER_WORKER_FACTOR}"
-    echo "elite_pool_factor=${ELITE_POOL_FACTOR}"
-    echo "randomize_worker_hyperparams=${RANDOMIZE_WORKER_HYPARAMS}"
-    echo "prefer_pulled=${PREFER_PULLED}"
+    echo "adaptive_iterations=${ADAPTIVE_ITERATIONS_VALUE}"
+    echo "adaptive_pull_elite_segments=${ADAPTIVE_PULL_ELITE_SEGMENTS_VALUE}"
+    echo "elite_pull_strategy=${ELITE_PULL_STRATEGY_VALUE}"
+    echo "min_pull_elites_per_worker_factor=${MIN_PULL_ELITES_PER_WORKER_FACTOR_VALUE}"
+    echo "elite_pool_factor=${ELITE_POOL_FACTOR_VALUE}"
+    echo "randomize_worker_hyperparams=${RANDOMIZE_WORKER_HYPERPARAMS_VALUE}"
+    echo "prefer_pulled=${PREFER_PULLED_VALUE}"
     echo "average_result=${AVG_RESULT}"
     echo "average_total_time_sec=${AVG_TIME}"
     echo "best_result=${BEST_RESULT}"
-    echo "best_result_data_file=${BEST_FILE}"
     echo "file_count=${FILE_COUNT}"
     echo "best_result_total_time_sec=${BEST_TIME}"
     echo "csv_file=${CSV_FILE}"
