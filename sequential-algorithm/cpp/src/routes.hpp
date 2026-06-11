@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include "rc.hpp"
 #include <optional>
 #include <tuple>
 #include <deque>
@@ -81,14 +82,14 @@ template<typename Derived>
 class Route : public RouteBase {
 public:
     // ---- Shared manipulators ----
-    std::shared_ptr<Derived> route_push(size_t customer) const {
+    LocalRc<Derived> route_push(size_t customer) const {
         const auto& custs = data().customers;
         auto nc = custs;
         nc.insert(nc.end() - 1, customer);
         return RouteHelper<Derived>::make(std::move(nc));
     }
 
-    std::shared_ptr<Derived> route_pop() const {
+    LocalRc<Derived> route_pop() const {
         const auto& custs = data().customers;
         auto nc = custs;
         nc.erase(nc.end() - 2);
@@ -98,12 +99,12 @@ public:
     // ---- inter_route_extract ----
     template<typename T>
     std::vector<std::tuple<
-        std::shared_ptr<Derived>,
-        std::shared_ptr<T>,
+        LocalRc<Derived>,
+        LocalRc<T>,
         std::vector<size_t>>>
     inter_route_extract(Neighborhood n) const
     {
-        using Ret = std::tuple<std::shared_ptr<Derived>, std::shared_ptr<T>, std::vector<size_t>>;
+        using Ret = std::tuple<LocalRc<Derived>, LocalRc<T>, std::vector<size_t>>;
         std::vector<Ret> results;
         const auto& customers = data().customers;
         std::deque<size_t> queue;
@@ -141,13 +142,13 @@ public:
     // ---- inter_route ----
     template<typename T>
     std::vector<std::tuple<
-        std::optional<std::shared_ptr<Derived>>,
-        std::optional<std::shared_ptr<T>>,
+        std::optional<LocalRc<Derived>>,
+        std::optional<LocalRc<T>>,
         std::vector<size_t>>>
-    inter_route(std::shared_ptr<T> other, Neighborhood n) const
+    inter_route(LocalRc<T> other, Neighborhood n) const
     {
-        using Opt_D = std::optional<std::shared_ptr<Derived>>;
-        using Opt_T = std::optional<std::shared_ptr<T>>;
+        using Opt_D = std::optional<LocalRc<Derived>>;
+        using Opt_T = std::optional<LocalRc<T>>;
         using Ret   = std::tuple<Opt_D, Opt_T, std::vector<size_t>>;
         std::vector<Ret> results;
 
@@ -291,15 +292,15 @@ public:
     // ---- inter_route_3 (EjectionChain only) ----
     template<typename T1, typename T2>
     std::vector<std::tuple<
-        std::optional<std::shared_ptr<Derived>>,
-        std::shared_ptr<T1>,
-        std::shared_ptr<T2>,
+        std::optional<LocalRc<Derived>>,
+        LocalRc<T1>,
+        LocalRc<T2>,
         std::vector<size_t>>>
-    inter_route_3(std::shared_ptr<T1> other_x, std::shared_ptr<T2> other_y,
+    inter_route_3(LocalRc<T1> other_x, LocalRc<T2> other_y,
                   Neighborhood /*n – must be EjectionChain*/) const
     {
-        using Opt_D = std::optional<std::shared_ptr<Derived>>;
-        using Ret   = std::tuple<Opt_D, std::shared_ptr<T1>, std::shared_ptr<T2>, std::vector<size_t>>;
+        using Opt_D = std::optional<LocalRc<Derived>>;
+        using Ret   = std::tuple<Opt_D, LocalRc<T1>, LocalRc<T2>, std::vector<size_t>>;
         std::vector<Ret> results;
 
         const auto& ci = data().customers;
@@ -339,10 +340,10 @@ public:
     }
 
     // ---- intra_route ----
-    std::vector<std::pair<std::shared_ptr<Derived>, std::vector<size_t>>>
+    std::vector<std::pair<LocalRc<Derived>, std::vector<size_t>>>
     intra_route(Neighborhood n) const
     {
-        using Ret = std::pair<std::shared_ptr<Derived>, std::vector<size_t>>;
+        using Ret = std::pair<LocalRc<Derived>, std::vector<size_t>>;
         std::vector<Ret> results;
         const auto& custs = data().customers;
         size_t len = custs.size();
@@ -504,8 +505,8 @@ public:
     double capacity_violation()           const override { return _capacity_violation; }
     double waiting_time_violation()       const override { return _waiting_time_violation; }
 
-    static std::shared_ptr<TruckRoute> make(std::vector<size_t> customers);
-    static std::shared_ptr<TruckRoute> make_single(size_t customer) {
+    static LocalRc<TruckRoute> make(std::vector<size_t> customers);
+    static LocalRc<TruckRoute> make_single(size_t customer) {
         return make({0, customer, 0});
     }
 
@@ -513,13 +514,17 @@ public:
     static bool single_customer()      { return false; }
     static bool single_route()         { return global_config().single_truck_route; }
 
-    static std::vector<std::vector<std::shared_ptr<TruckRoute>>>& get_routes_mut(
-        std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-        std::vector<std::vector<std::shared_ptr<DroneRoute>>>& /*dr*/) { return tr; }
+    static std::vector<std::vector<LocalRc<TruckRoute>>>& get_routes_mut(
+        std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+        std::vector<std::vector<LocalRc<DroneRoute>>>& /*dr*/) { return tr; }
 
-    static const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& get_routes(
-        const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-        const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& /*dr*/) { return tr; }
+    static const std::vector<std::vector<LocalRc<TruckRoute>>>& get_routes(
+        const std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+        const std::vector<std::vector<LocalRc<DroneRoute>>>& /*dr*/) { return tr; }
+
+    // Passkey for LocalRc construction — only TruckRoute can create PrivateTag
+    struct PrivateTag { friend class TruckRoute; private: PrivateTag() = default; };
+    explicit TruckRoute(PrivateTag) {}
 
 private:
     TruckRoute() = default;
@@ -543,8 +548,8 @@ public:
     double capacity_violation()           const override { return _capacity_violation; }
     double waiting_time_violation()       const override { return _waiting_time_violation; }
 
-    static std::shared_ptr<DroneRoute> make(std::vector<size_t> customers);
-    static std::shared_ptr<DroneRoute> make_single(size_t customer) {
+    static LocalRc<DroneRoute> make(std::vector<size_t> customers);
+    static LocalRc<DroneRoute> make_single(size_t customer) {
         return make({0, customer, 0});
     }
 
@@ -552,13 +557,17 @@ public:
     static bool single_customer()   { return global_config().single_drone_route; }
     static bool single_route()      { return false; }
 
-    static std::vector<std::vector<std::shared_ptr<DroneRoute>>>& get_routes_mut(
-        std::vector<std::vector<std::shared_ptr<TruckRoute>>>& /*tr*/,
-        std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) { return dr; }
+    static std::vector<std::vector<LocalRc<DroneRoute>>>& get_routes_mut(
+        std::vector<std::vector<LocalRc<TruckRoute>>>& /*tr*/,
+        std::vector<std::vector<LocalRc<DroneRoute>>>& dr) { return dr; }
 
-    static const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& get_routes(
-        const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& /*tr*/,
-        const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) { return dr; }
+    static const std::vector<std::vector<LocalRc<DroneRoute>>>& get_routes(
+        const std::vector<std::vector<LocalRc<TruckRoute>>>& /*tr*/,
+        const std::vector<std::vector<LocalRc<DroneRoute>>>& dr) { return dr; }
+
+    // Passkey for LocalRc construction — only DroneRoute can create PrivateTag
+    struct PrivateTag { friend class DroneRoute; private: PrivateTag() = default; };
+    explicit DroneRoute(PrivateTag) {}
 
 private:
     DroneRoute() = default;
@@ -572,17 +581,17 @@ template<> struct RouteHelper<TruckRoute> {
     static bool servable(size_t c)  { return TruckRoute::servable(c); }
     static bool single_customer()   { return TruckRoute::single_customer(); }
     static bool single_route()      { return TruckRoute::single_route(); }
-    static std::shared_ptr<TruckRoute> make(std::vector<size_t> c) {
+    static LocalRc<TruckRoute> make(std::vector<size_t> c) {
         return TruckRoute::make(std::move(c));
     }
-    static std::vector<std::vector<std::shared_ptr<TruckRoute>>>& get_routes_mut(
-        std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-        std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) {
+    static std::vector<std::vector<LocalRc<TruckRoute>>>& get_routes_mut(
+        std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+        std::vector<std::vector<LocalRc<DroneRoute>>>& dr) {
         return TruckRoute::get_routes_mut(tr, dr);
     }
-    static const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& get_routes(
-        const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-        const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) {
+    static const std::vector<std::vector<LocalRc<TruckRoute>>>& get_routes(
+        const std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+        const std::vector<std::vector<LocalRc<DroneRoute>>>& dr) {
         return TruckRoute::get_routes(tr, dr);
     }
 };
@@ -591,17 +600,17 @@ template<> struct RouteHelper<DroneRoute> {
     static bool servable(size_t c)  { return DroneRoute::servable(c); }
     static bool single_customer()   { return DroneRoute::single_customer(); }
     static bool single_route()      { return DroneRoute::single_route(); }
-    static std::shared_ptr<DroneRoute> make(std::vector<size_t> c) {
+    static LocalRc<DroneRoute> make(std::vector<size_t> c) {
         return DroneRoute::make(std::move(c));
     }
-    static std::vector<std::vector<std::shared_ptr<DroneRoute>>>& get_routes_mut(
-        std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-        std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) {
+    static std::vector<std::vector<LocalRc<DroneRoute>>>& get_routes_mut(
+        std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+        std::vector<std::vector<LocalRc<DroneRoute>>>& dr) {
         return DroneRoute::get_routes_mut(tr, dr);
     }
-    static const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& get_routes(
-        const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-        const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) {
+    static const std::vector<std::vector<LocalRc<DroneRoute>>>& get_routes(
+        const std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+        const std::vector<std::vector<LocalRc<DroneRoute>>>& dr) {
         return DroneRoute::get_routes(tr, dr);
     }
 };
@@ -611,11 +620,11 @@ template<> struct RouteHelper<DroneRoute> {
 // -----------------------------------------------------------------------
 struct AnyRoute {
     enum class Type { Truck, Drone } type;
-    std::shared_ptr<TruckRoute> truck;
-    std::shared_ptr<DroneRoute> drone;
+    LocalRc<TruckRoute> truck;
+    LocalRc<DroneRoute> drone;
 
-    explicit AnyRoute(std::shared_ptr<TruckRoute> t) : type(Type::Truck), truck(std::move(t)) {}
-    explicit AnyRoute(std::shared_ptr<DroneRoute> d) : type(Type::Drone), drone(std::move(d)) {}
+    explicit AnyRoute(LocalRc<TruckRoute> t) : type(Type::Truck), truck(std::move(t)) {}
+    explicit AnyRoute(LocalRc<DroneRoute> d) : type(Type::Drone), drone(std::move(d)) {}
 
     const std::vector<size_t>& customers() const {
         return type == Type::Truck ? truck->data().customers : drone->data().customers;

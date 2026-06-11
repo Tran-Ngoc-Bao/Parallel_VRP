@@ -45,8 +45,8 @@ static constexpr double TOLERANCE = 0.001;
 // Solution::make
 // -----------------------------------------------------------------------
 Solution Solution::make(
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>> truck_routes,
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>> drone_routes)
+    std::vector<std::vector<LocalRc<TruckRoute>>> truck_routes,
+    std::vector<std::vector<LocalRc<DroneRoute>>> drone_routes)
 {
     const Config& cfg = global_config();
     Solution sol;
@@ -111,7 +111,8 @@ double Solution::cost() const {
         + penalty::get(1) * capacity_violation
         + penalty::get(2) * waiting_time_violation
         + penalty::get(3) * fixed_time_violation;
-    return working_time * std::pow(p, global_config().penalty_exponent);
+    const double exp = global_config().penalty_exponent;
+    return working_time * (exp == 0.5 ? std::sqrt(p) : std::pow(p, exp));
 }
 
 // -----------------------------------------------------------------------
@@ -202,8 +203,8 @@ nlohmann::json Solution::to_json() const {
 }
 
 Solution Solution::from_json(const nlohmann::json& j) {
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>> tr;
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>> dr;
+    std::vector<std::vector<LocalRc<TruckRoute>>> tr;
+    std::vector<std::vector<LocalRc<DroneRoute>>> dr;
 
     for (const auto& vr : j.at("truck_routes")) {
         tr.push_back({});
@@ -231,16 +232,16 @@ Solution Solution::initialize()
 
     auto clusters = clusterize(index, cfg.trucks_count);
 
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>> truck_routes(cfg.trucks_count);
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>> drone_routes(cfg.trucks_count);
+    std::vector<std::vector<LocalRc<TruckRoute>>> truck_routes(cfg.trucks_count);
+    std::vector<std::vector<LocalRc<DroneRoute>>> drone_routes(cfg.trucks_count);
 
     std::vector<size_t> clusters_mapping(cfg.customers_count+1, 0);
     for (size_t ci = 0; ci < clusters.size(); ++ci)
         for (size_t c : clusters[ci]) clusters_mapping[c] = ci;
 
     // Check feasibility helper
-    auto feasible_check = [](const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& tr,
-                              const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& dr) {
+    auto feasible_check = [](const std::vector<std::vector<LocalRc<TruckRoute>>>& tr,
+                              const std::vector<std::vector<LocalRc<DroneRoute>>>& dr) {
         return Solution::make(tr, dr).feasible;
     };
 
@@ -456,7 +457,7 @@ Solution Solution::initialize()
 
     // Resize drone routes to cfg.drones_count
     if (cfg.drones_count > 0) {
-        std::vector<std::shared_ptr<DroneRoute>> all_routes;
+        std::vector<LocalRc<DroneRoute>> all_routes;
         for (auto& v : drone_routes)
             for (auto& r : v) all_routes.push_back(r);
         std::sort(all_routes.begin(), all_routes.end(),
@@ -475,7 +476,7 @@ Solution Solution::initialize()
         drone_routes.clear();
     }
 
-    return Solution::make(truck_routes, drone_routes);
+    return Solution::make(std::move(truck_routes), std::move(drone_routes));
 }
 
 // -----------------------------------------------------------------------
@@ -569,9 +570,9 @@ Solution Solution::destroy_and_repair(
         for (size_t t = 0; t < cur_tr.size(); ++t) {
             if (!cfg.single_truck_route || cur_tr[t].empty()) {
                 cur_tr[t].push_back(TruckRoute::make_single(cust));
-                auto tmp = Solution::make(cur_tr, cur_dr);
+                auto tmp = Solution::make(std::move(cur_tr), std::move(cur_dr));
                 if (tmp.cost() < min_cost) { min_cost = tmp.cost(); best = {true,true,t,0,0}; }
-                cur_tr = tmp.truck_routes; cur_dr = tmp.drone_routes;
+                cur_tr = std::move(tmp.truck_routes); cur_dr = std::move(tmp.drone_routes);
                 cur_tr[t].pop_back();
             }
             for (size_t ri = 0; ri < cur_tr[t].size(); ++ri) {
@@ -580,9 +581,9 @@ Solution Solution::destroy_and_repair(
                 buf.insert(buf.begin()+1, cust);
                 for (size_t pos = 1; pos < recover->data().customers.size(); ++pos) {
                     cur_tr[t][ri] = TruckRoute::make(buf);
-                    auto tmp = Solution::make(cur_tr, cur_dr);
+                    auto tmp = Solution::make(std::move(cur_tr), std::move(cur_dr));
                     if (tmp.cost() < min_cost) { min_cost = tmp.cost(); best = {true,false,t,ri,pos}; }
-                    cur_tr = tmp.truck_routes; cur_dr = tmp.drone_routes;
+                    cur_tr = std::move(tmp.truck_routes); cur_dr = std::move(tmp.drone_routes);
                     std::swap(buf[pos], buf[pos+1]);
                 }
                 cur_tr[t][ri] = recover;
@@ -593,9 +594,9 @@ Solution Solution::destroy_and_repair(
         if (cfg.dronable[cust]) {
             for (size_t d = 0; d < cur_dr.size(); ++d) {
                 cur_dr[d].push_back(DroneRoute::make_single(cust));
-                auto tmp = Solution::make(cur_tr, cur_dr);
+                auto tmp = Solution::make(std::move(cur_tr), std::move(cur_dr));
                 if (tmp.cost() < min_cost) { min_cost = tmp.cost(); best = {false,true,d,0,0}; }
-                cur_tr = tmp.truck_routes; cur_dr = tmp.drone_routes;
+                cur_tr = std::move(tmp.truck_routes); cur_dr = std::move(tmp.drone_routes);
                 cur_dr[d].pop_back();
 
                 if (!cfg.single_drone_route) {
@@ -605,9 +606,9 @@ Solution Solution::destroy_and_repair(
                         buf.insert(buf.begin()+1, cust);
                         for (size_t pos = 1; pos < recover->data().customers.size(); ++pos) {
                             cur_dr[d][ri] = DroneRoute::make(buf);
-                            auto tmp = Solution::make(cur_tr, cur_dr);
+                            auto tmp = Solution::make(std::move(cur_tr), std::move(cur_dr));
                             if (tmp.cost() < min_cost) { min_cost = tmp.cost(); best = {false,false,d,ri,pos}; }
-                            cur_tr = tmp.truck_routes; cur_dr = tmp.drone_routes;
+                            cur_tr = std::move(tmp.truck_routes); cur_dr = std::move(tmp.drone_routes);
                             std::swap(buf[pos], buf[pos+1]);
                         }
                         cur_dr[d][ri] = recover;
@@ -638,7 +639,7 @@ Solution Solution::destroy_and_repair(
 
     for (int i = 0; i < 4; ++i) penalty::set(i, old_p[i]);
 
-    return Solution::make(cur_tr, cur_dr);
+    return Solution::make(std::move(cur_tr), std::move(cur_dr));
 }
 
 // -----------------------------------------------------------------------

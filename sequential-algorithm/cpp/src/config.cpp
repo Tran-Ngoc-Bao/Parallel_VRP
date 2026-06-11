@@ -586,15 +586,10 @@ Config build_config_from_json(const std::string& json_path)
 // -----------------------------------------------------------------------
 // Global singleton
 // -----------------------------------------------------------------------
-static Config* g_config = nullptr;
-
-Config& global_config() {
-    if (!g_config) throw std::runtime_error("Config not initialized");
-    return *g_config;
-}
+Config* g_config_ptr = nullptr;
 
 void set_global_config(Config cfg) {
     static Config storage;
-    storage   = std::move(cfg);
-    g_config  = &storage;
+    storage      = std::move(cfg);
+    g_config_ptr = &storage;
 }

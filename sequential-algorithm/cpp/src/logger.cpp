@@ -56,7 +56,7 @@ static std::string wrap(const std::string& s) {
 }
 
 static std::string routes_repr(
-    const std::vector<std::vector<std::shared_ptr<TruckRoute>>>& routes)
+    const std::vector<std::vector<LocalRc<TruckRoute>>>& routes)
 {
     std::ostringstream oss;
     oss << "[";
@@ -80,7 +80,7 @@ static std::string routes_repr(
 }
 
 static std::string drone_routes_repr(
-    const std::vector<std::vector<std::shared_ptr<DroneRoute>>>& routes)
+    const std::vector<std::vector<LocalRc<DroneRoute>>>& routes)
 {
     std::ostringstream oss;
     oss << "[";

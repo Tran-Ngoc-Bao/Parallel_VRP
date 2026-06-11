@@ -42,8 +42,8 @@ struct IterState {
     std::vector<size_t>& best_tabu;
 };
 
-static bool internal_update(IterState& st, const Solution& sol,
-                             const std::vector<size_t>& tabu)
+template<typename Tabu>
+static bool internal_update(IterState& st, const Solution& sol, Tabu&& tabu)
 {
     if (st.require_feasible && !sol.feasible) return false;
     double cost = sol.cost();
@@ -53,7 +53,7 @@ static bool internal_update(IterState& st, const Solution& sol,
     if (new_global || (!in_tabu && cost < st.min_cost)) {
         st.min_cost     = cost;
         st.best_result  = sol;
-        st.best_tabu    = tabu;
+        st.best_tabu    = std::forward<Tabu>(tabu);
         if (new_global) {
             st.aspiration_cost  = cost;
             st.require_feasible = true;
@@ -73,8 +73,8 @@ static void inter_route_internal(
     Neighborhood n,
     IterState&   st,
     size_t       vehicle_i,
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>>& truck_cloned,
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>>& drone_cloned)
+    std::vector<std::vector<LocalRc<TruckRoute>>>& truck_cloned,
+    std::vector<std::vector<LocalRc<DroneRoute>>>& drone_cloned)
 {
     const auto& orig_ri = RouteHelper<RI>::get_routes(
         st.original.truck_routes, st.original.drone_routes);
@@ -106,8 +106,8 @@ static void inter_route_internal(
 
                     // Collect neighbors
                     using Tup = std::tuple<
-                        std::optional<std::shared_ptr<RI>>,
-                        std::optional<std::shared_ptr<RJ>>,
+                        std::optional<LocalRc<RI>>,
+                        std::optional<LocalRc<RJ>>,
                         std::vector<size_t>>;
                     std::vector<Tup> neighbors = route_i->template inter_route<RJ>(route_j, n);
 
@@ -157,12 +157,12 @@ static void inter_route_internal(
                             }
                         }
 
-                        Solution s = Solution::make(truck_cloned, drone_cloned);
-                        internal_update(st, s, tabu);
+                        Solution s = Solution::make(std::move(truck_cloned), std::move(drone_cloned));
+                        internal_update(st, s, std::move(tabu));
 
                         // Restore
-                        truck_cloned = s.truck_routes;
-                        drone_cloned = s.drone_routes;
+                        truck_cloned = std::move(s.truck_routes);
+                        drone_cloned = std::move(s.drone_routes);
 
                         {
                             auto& cr = RouteHelper<RJ>::get_routes_mut(truck_cloned, drone_cloned);
@@ -198,8 +198,8 @@ static void inter_route_extract_internal(
     Neighborhood n,
     IterState&   st,
     size_t       vehicle_i,
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>>& truck_cloned,
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>>& drone_cloned)
+    std::vector<std::vector<LocalRc<TruckRoute>>>& truck_cloned,
+    std::vector<std::vector<LocalRc<DroneRoute>>>& drone_cloned)
 {
     const auto& orig_ri = RouteHelper<RI>::get_routes(
         st.original.truck_routes, st.original.drone_routes);
@@ -231,11 +231,11 @@ static void inter_route_extract_internal(
                         cr[vehicle_j].push_back(new_rj);
                     }
 
-                    Solution s = Solution::make(truck_cloned, drone_cloned);
-                    internal_update(st, s, tabu);
+                    Solution s = Solution::make(std::move(truck_cloned), std::move(drone_cloned));
+                    internal_update(st, s, tabu);   // NOTE: tabu NOT moved here — it's reused in inner loop over vehicle_j
 
-                    truck_cloned = s.truck_routes;
-                    drone_cloned = s.drone_routes;
+                    truck_cloned = std::move(s.truck_routes);
+                    drone_cloned = std::move(s.drone_routes);
 
                     {
                         auto& cr = RouteHelper<RJ>::get_routes_mut(truck_cloned, drone_cloned);
@@ -317,7 +317,7 @@ static void ejection_chain_internal(IterState& st)
                                 Solution s = AnyRoute::to_solution(
                                     std::move(new_tr), std::move(new_dr));
 
-                                if (internal_update(st, s, tabu)) {
+                                if (internal_update(st, s, std::move(tabu))) {
                                     // Update local view from new best
                                     auto [ntr, ndr] = AnyRoute::from_solution(s);
                                     truck_routes = std::move(ntr);
@@ -405,10 +405,10 @@ std::pair<Solution, std::vector<size_t>> intra_route(
             auto neighbors = route->intra_route(n);
             for (auto& [new_route, tabu] : neighbors) {
                 cloned[vehicle][i] = new_route;
-                Solution s = Solution::make(truck_cloned, drone_cloned);
-                internal_update(st, s, tabu);
-                truck_cloned = s.truck_routes;
-                drone_cloned = s.drone_routes;
+                Solution s = Solution::make(std::move(truck_cloned), std::move(drone_cloned));
+                internal_update(st, s, std::move(tabu));
+                truck_cloned = std::move(s.truck_routes);
+                drone_cloned = std::move(s.drone_routes);
                 cloned[vehicle][i] = route;
             }
         }
@@ -452,13 +452,13 @@ bool search(
     if (intra_tabu.empty() && inter_tabu.empty()) return false;
 
     if (intra_tabu.empty()) {
-        result = inter_sol; tabu = inter_tabu;
+        result = std::move(inter_sol); tabu = std::move(inter_tabu);
     } else if (inter_tabu.empty()) {
-        result = intra_sol; tabu = intra_tabu;
+        result = std::move(intra_sol); tabu = std::move(intra_tabu);
     } else if (intra_sol.cost() < inter_sol.cost()) {
-        result = intra_sol; tabu = intra_tabu;
+        result = std::move(intra_sol); tabu = std::move(intra_tabu);
     } else {
-        result = inter_sol; tabu = inter_tabu;
+        result = std::move(inter_sol); tabu = std::move(inter_tabu);
     }
 
     std::sort(tabu.begin(), tabu.end());

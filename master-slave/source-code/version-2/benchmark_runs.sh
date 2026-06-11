@@ -35,7 +35,7 @@ for DATA_FILE in "${DATA_FILES[@]}"; do
         bash "${RUN_SCRIPT}" "${DATA_FILE}" > "${TMP_LOG}" 2>&1
 
         RESULT="$(sed -n 's/^Result = \([0-9.][0-9.]*\)$/\1/p' "${TMP_LOG}" | tail -n 1 | awk '{printf "%.6f", $1 / 60}')"
-        TOTAL_TIME="$(sed -n 's/^Timing .* total=\([0-9.][0-9.]*\)$/\1/p' "${TMP_LOG}" | tail -n 1)"
+        TOTAL_TIME="$(sed -n 's/^Timing .* total=\([0-9.][0-9.]*\)$/\1/p' "${TMP_LOG}" | tail -n 1 | awk '{printf "%.3f", $1}')"
 
         rm -f "${TMP_LOG}"
 

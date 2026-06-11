@@ -175,5 +175,6 @@ Config build_config_from_json(const std::string& json_path);
 nlohmann::json config_to_json(const Config& cfg);
 
 // Global singleton – initialized once from CLI args
-Config& global_config();
-void    set_global_config(Config cfg);
+extern Config* g_config_ptr;
+inline Config& global_config() noexcept { return *g_config_ptr; }
+void set_global_config(Config cfg);

@@ -23,8 +23,8 @@ struct Logger;
 // Solution
 // -----------------------------------------------------------------------
 struct Solution {
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>> truck_routes;
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>> drone_routes;
+    std::vector<std::vector<LocalRc<TruckRoute>>> truck_routes;
+    std::vector<std::vector<LocalRc<DroneRoute>>> drone_routes;
 
     std::vector<double> truck_working_time;
     std::vector<double> drone_working_time;
@@ -38,8 +38,8 @@ struct Solution {
 
     // Factory – computes all derived fields
     static Solution make(
-        std::vector<std::vector<std::shared_ptr<TruckRoute>>> truck_routes,
-        std::vector<std::vector<std::shared_ptr<DroneRoute>>> drone_routes);
+        std::vector<std::vector<LocalRc<TruckRoute>>> truck_routes,
+        std::vector<std::vector<LocalRc<DroneRoute>>> drone_routes);
 
     double cost() const;
 

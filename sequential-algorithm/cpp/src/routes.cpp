@@ -6,11 +6,11 @@
 // -----------------------------------------------------------------------
 // TruckRoute::make
 // -----------------------------------------------------------------------
-std::shared_ptr<TruckRoute> TruckRoute::make(std::vector<size_t> customers)
+LocalRc<TruckRoute> TruckRoute::make(std::vector<size_t> customers)
 {
     const Config& cfg = global_config();
-    auto r = std::shared_ptr<TruckRoute>(new TruckRoute());
-    r->_data = RouteData::construct(customers, cfg.truck_distances);
+    auto r = LocalRc<TruckRoute>::make(TruckRoute::PrivateTag{});
+    r->_data = RouteData::construct(std::move(customers), cfg.truck_distances);
 
     double speed = cfg.truck.speed;
     r->_working_time       = r->_data.distance / speed;
@@ -32,11 +32,11 @@ std::shared_ptr<TruckRoute> TruckRoute::make(std::vector<size_t> customers)
 // -----------------------------------------------------------------------
 // DroneRoute::make
 // -----------------------------------------------------------------------
-std::shared_ptr<DroneRoute> DroneRoute::make(std::vector<size_t> customers)
+LocalRc<DroneRoute> DroneRoute::make(std::vector<size_t> customers)
 {
     const Config& cfg = global_config();
-    auto r = std::shared_ptr<DroneRoute>(new DroneRoute());
-    r->_data = RouteData::construct(customers, cfg.drone_distances);
+    auto r = LocalRc<DroneRoute>::make(DroneRoute::PrivateTag{});
+    r->_data = RouteData::construct(std::move(customers), cfg.drone_distances);
 
     const DroneConfig& drone = cfg.drone;
     const auto& c   = r->_data.customers;
@@ -93,8 +93,8 @@ Solution AnyRoute::to_solution(
     std::vector<std::vector<AnyRoute>> truck_routes,
     std::vector<std::vector<AnyRoute>> drone_routes)
 {
-    std::vector<std::vector<std::shared_ptr<TruckRoute>>> tr;
-    std::vector<std::vector<std::shared_ptr<DroneRoute>>> dr;
+    std::vector<std::vector<LocalRc<TruckRoute>>> tr;
+    std::vector<std::vector<LocalRc<DroneRoute>>> dr;
 
     for (auto& routes : truck_routes) {
         tr.push_back({});
@@ -124,8 +124,8 @@ AnyRoute::inter_route_3_any(const AnyRoute& ox, const AnyRoute& oy,
     using Opt = std::optional<AnyRoute>;
     std::vector<std::tuple<Opt, AnyRoute, AnyRoute, std::vector<size_t>>> result;
 
-    auto pack_truck = [](std::shared_ptr<TruckRoute> p) -> AnyRoute { return AnyRoute(p); };
-    auto pack_drone = [](std::shared_ptr<DroneRoute> p) -> AnyRoute { return AnyRoute(p); };
+    auto pack_truck = [](LocalRc<TruckRoute> p) -> AnyRoute { return AnyRoute(p); };
+    auto pack_drone = [](LocalRc<DroneRoute> p) -> AnyRoute { return AnyRoute(p); };
 
 #define DO_COMBO(R1, R2, R3, WRAP_I, WRAP_J, WRAP_K) \
     { \
