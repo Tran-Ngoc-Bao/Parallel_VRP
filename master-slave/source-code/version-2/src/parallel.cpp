@@ -7,6 +7,8 @@
 #include <cmath>
 #include <chrono>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -415,6 +417,15 @@ Solution run_master(int world_size)
     const std::size_t min_pull_elites_per_worker = compute_min_pull_elites_per_worker(base_cfg, world_size);
     ElitePool elite_pool(elite_keep_count);
     const auto t1 = std::chrono::steady_clock::now();
+
+    struct ConvergenceRecord { double time_ms, cost_min; };
+    std::vector<ConvergenceRecord> conv_records;
+    auto record_convergence = [&](const Solution& sol) {
+        double t_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        conv_records.push_back({t_ms, sol.cost() / 60.0});
+    };
+    record_convergence(best_solution);
+
     std::size_t next_seed = base_cfg.seed ? *base_cfg.seed : 1;
 
     std::vector<bool> worker_running(static_cast<std::size_t>(world_size), false);
@@ -458,6 +469,7 @@ Solution run_master(int world_size)
             if (is_valid_solution_for_exchange(elite)) {
                 if (!best_solution.feasible || elite.cost() < best_solution.cost()) {
                     best_solution = elite;
+                    record_convergence(best_solution);
                 }
                 elite_pool.consider(std::move(elite), worker_rank, prefer_pulled_flag);
             }
@@ -502,6 +514,7 @@ Solution run_master(int world_size)
             Solution result = recv_solution(worker_rank, TAG_RESULT);
             if (is_valid_solution_for_exchange(result) && (!best_solution.feasible || result.cost() < best_solution.cost())) {
                 best_solution = result;
+                record_convergence(best_solution);
             }
             if (is_valid_solution_for_exchange(result)) {
                 elite_pool.consider(std::move(result), worker_rank, prefer_pulled_flag);
@@ -523,6 +536,28 @@ Solution run_master(int world_size)
               << "Timing (mode=parallel-master-slave, unit=s): init="
               << init_sec << " search=" << loop_sec
               << " total=" << total_sec << "\n";
+
+    if (!base_cfg.disable_logging && !conv_records.empty()) {
+        namespace fs = std::filesystem;
+        fs::path out(base_cfg.outputs);
+        if (!fs::is_directory(out)) fs::create_directories(out);
+        const std::string stem = fs::path(base_cfg.problem).stem().string();
+        const char id_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        std::mt19937 id_rng{std::random_device{}()};
+        std::uniform_int_distribution<int> char_dist(0, 61);
+        std::string run_id(8, ' ');
+        for (auto& c : run_id) c = id_chars[char_dist(id_rng)];
+        fs::path conv_path = out / (stem + "-" + run_id + "-convergence.csv");
+        std::ofstream f(conv_path);
+        if (f) {
+            f << "sep=,\ntime_ms,cost_min\n";
+            f << std::fixed;
+            for (const auto& r : conv_records)
+                f << std::setprecision(1) << r.time_ms << ','
+                  << std::setprecision(6) << r.cost_min << '\n';
+            std::cerr << "Convergence log written to " << conv_path.string() << "\n";
+        }
+    }
 
     Logger logger;
     logger.finalize(best_solution, 0, 0, 0, 0, 0, 0.0, 0.0);

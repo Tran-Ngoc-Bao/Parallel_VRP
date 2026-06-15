@@ -10,6 +10,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ca-certificates \
     pkg-config \
     libssl-dev \
+    python3 \
+    python3-pip \
+    && pip3 install matplotlib \
     && rm -rf /var/lib/apt/lists/*
 
 ENV RUSTUP_HOME=/usr/local/rustup \

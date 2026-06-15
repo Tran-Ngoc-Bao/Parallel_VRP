@@ -23,5 +23,9 @@ ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git \
     openmpi-bin \
     libopenmpi-dev \
+    python3 \
+    python3-pip
+
+pip3 install matplotlib
 
 echo "Done."
