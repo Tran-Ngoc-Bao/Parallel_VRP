@@ -18,24 +18,28 @@ while read -r prefix ai seg strat minpull pool rand prefer_pulled workers; do
   NUM_WORKERS="$workers" \
   bash "${BENCHMARK_RUN}" </dev/null
 done <<'EOF'
-200 4 random 5 0.03 0 1 10
-200 4 random 6 0.03 0 1 10
-200 4 random 7 0.03 0 1 10
-200 4 random 8 0.03 0 1 10
-200 4 random 9 0.03 0 1 10
-200 4 topk 5 0.03 0 1 10
-200 4 topk 6 0.03 0 1 10
-200 4 topk 7 0.03 0 1 10
-200 4 topk 8 0.03 0 1 10
-200 4 topk 9 0.03 0 1 10
-200 4 rank 5 0.03 0 1 10
-200 4 rank 6 0.03 0 1 10
-200 4 rank 7 0.03 0 1 10
-200 4 rank 8 0.03 0 1 10
-200 4 rank 9 0.03 0 1 10
-200 4 pullcount 5 0.03 0 1 10
-200 4 pullcount 6 0.03 0 1 10
-200 4 pullcount 7 0.03 0 1 10
-200 4 pullcount 8 0.03 0 1 10
-200 4 pullcount 9 0.03 0 1 10
+200 8 4 random 2 0.03 0 1 10
+200 8 4 random 4 0.03 0 1 10
+200 8 4 random 6 0.03 0 1 10
+200 8 4 random 8 0.03 0 1 10
+200 8 4 random 10 0.03 0 1 10
+200 8 4 random 12 0.03 0 1 10
+200 8 4 topk 2 0.03 0 1 10
+200 8 4 topk 4 0.03 0 1 10
+200 8 4 topk 6 0.03 0 1 10
+200 8 4 topk 8 0.03 0 1 10
+200 8 4 topk 10 0.03 0 1 10
+200 8 4 topk 12 0.03 0 1 10
+200 8 4 rank 2 0.03 0 1 10
+200 8 4 rank 4 0.03 0 1 10
+200 8 4 rank 6 0.03 0 1 10
+200 8 4 rank 8 0.03 0 1 10
+200 8 4 rank 10 0.03 0 1 10
+200 8 4 rank 12 0.03 0 1 10
+200 8 4 pullcount 2 0.03 0 1 10
+200 8 4 pullcount 4 0.03 0 1 10
+200 8 4 pullcount 6 0.03 0 1 10
+200 8 4 pullcount 8 0.03 0 1 10
+200 8 4 pullcount 10 0.03 0 1 10
+200 8 4 pullcount 12 0.03 0 1 10
 EOF

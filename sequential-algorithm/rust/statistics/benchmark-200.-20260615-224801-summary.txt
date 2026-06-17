@@ -1,0 +1,10 @@
+data_prefix=200.
+runs=5
+sleep_sec=0.0
+average_result=84.589249
+average_total_time_sec=26.11
+best_result=83.122595
+best_result_data_file=200.
+file_count=16
+best_result_total_time_sec=30.13
+csv_file=/home/bao/Documents/github/Parallel_VRP/sequential-algorithm/rust/statistics/benchmark-200.-20260615-224801.csv

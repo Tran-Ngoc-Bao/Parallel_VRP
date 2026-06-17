@@ -1,0 +1,17 @@
+data_prefix=200.
+runs=5
+sleep_sec=2.0
+mpirun_np=10
+adaptive_iterations=8
+adaptive_pull_elite_segments=4
+elite_pull_strategy=random
+min_pull_elites_per_worker_factor=2
+elite_pool_factor=0.03
+randomize_worker_hyperparams=true
+prefer_pulled=true
+average_result=83.813085
+average_total_time_sec=10.27
+best_result=82.656860
+file_count=16
+best_result_total_time_sec=10.38
+csv_file=/home/bao/Documents/github/Parallel_VRP/master-slave/source-code/version-2/statistics/benchmark-200.-20260617-103246.csv

@@ -23,9 +23,18 @@ ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git \
     openmpi-bin \
     libopenmpi-dev \
+    curl \
+    ca-certificates \
     python3 \
     python3-pip
 
 pip3 install matplotlib
+
+if ! command -v cargo >/dev/null 2>&1; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+    echo "Rust installed. Run: source \"\$HOME/.cargo/env\" to activate in current shell."
+else
+    echo "Rust already installed: $(cargo --version)"
+fi
 
 echo "Done."
