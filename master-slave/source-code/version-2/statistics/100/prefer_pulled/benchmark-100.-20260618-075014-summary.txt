@@ -1,0 +1,17 @@
+data_prefix=100.
+runs=5
+sleep_sec=1.0
+mpirun_np=10
+adaptive_iterations=12
+adaptive_pull_elite_segments=4
+elite_pull_strategy=random
+min_pull_elites_per_worker_factor=6
+elite_pool_factor=0.03
+randomize_worker_hyperparams=false
+prefer_pulled=true
+average_result=123.113604
+average_total_time_sec=6.44
+best_result=122.281660
+file_count=16
+best_result_total_time_sec=6.78
+csv_file=/app/master-slave/source-code/version-2/statistics/benchmark-100.-20260618-075014.csv

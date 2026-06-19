@@ -1,0 +1,45 @@
+Not-Prefer-Pulled Analysis — 100 cities
+========================================
+Base values used:
+  average_result         baseline = 122.793711
+  average_total_time_sec baseline = 5.32
+
+Formulas:
+  result_diff% = (average_result - 122.793711) / 122.793711 * 100
+  time_diff%   = (average_total_time_sec - 5.32) / 5.32 * 100
+
+A negative result_diff% means solution quality is BETTER than baseline (shorter distance = better for TSP).
+A positive result_diff% means solution quality is WORSE than baseline.
+A negative time_diff%   means runs FASTER than baseline.
+A positive time_diff%   means runs SLOWER than baseline.
+Mục tiêu: result_diff% và time_diff% càng âm càng tốt.
+
+Results:
+------------------------------------------------------------------------------------------------------------
+adaptive_iterations   adaptive_pull_elite_segments   elite_pool_factor   avg_result   avg_time_sec   result_diff%   time_diff%
+------------------------------------------------------------------------------------------------------------
+8                     3                              0.02                124.983147           3.94           1.78       -25.94
+8                     3                              0.03                124.651301           3.56           1.51       -33.08
+8                     3                              0.04                125.744584           3.82           2.40       -28.20
+8                     4                              0.02                123.955854           5.29           0.95        -0.56
+8                     4                              0.03                123.899925           5.25           0.90        -1.32
+8                     4                              0.04                124.567865           4.96           1.44        -6.77
+8                     5                              0.02                123.687508           5.28           0.73        -0.75
+8                     5                              0.03                124.803028           5.25           1.64        -1.32
+8                     5                              0.04                123.432053           5.31           0.52        -0.19
+10                    3                              0.02                125.015428           4.10           1.81       -22.93
+10                    3                              0.03                124.888176           4.26           1.71       -19.92
+10                    3                              0.04                125.007797           4.23           1.80       -20.49
+10                    4                              0.02                123.708042           5.92           0.74        11.28
+10                    4                              0.03                123.998789           5.70           0.98         7.14
+10                    4                              0.04                123.815158           5.75           0.83         8.08
+10                    5                              0.02                123.191474           6.90           0.32        29.70
+10                    5                              0.03                123.047674           6.84           0.21        28.57
+10                    5                              0.04                123.609254           6.87           0.66        29.14
+------------------------------------------------------------------------------------------------------------
+
+Notes:
+- Tất cả config đều có result_diff% dương → tất cả đều kém hơn baseline về chất lượng.
+- Config gần baseline nhất về chất lượng: iters=10 / segs=5 / pool=0.03 (+0.21%) nhưng chậm hơn nhiều (+28.57%).
+- Config nhanh nhất: iters=8 / segs=3 / pool=0.03 (-33.08%) nhưng kém nhất về chất lượng (+1.51%).
+- Cân bằng tốt nhất: iters=8 / segs=5 / pool=0.04 (result +0.52%, time -0.19%) — gần baseline nhất cả hai chiều.

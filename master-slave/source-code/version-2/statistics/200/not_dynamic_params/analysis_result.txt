@@ -1,0 +1,49 @@
+Not-Dynamic-Params Analysis — 200 cities
+==========================================
+Base values used:
+  average_result         baseline = 84.29
+  average_total_time_sec baseline = 25.55
+
+Common params (same across all files):
+  adaptive_iterations=10
+  adaptive_pull_elite_segments=4
+  elite_pool_factor=0.03
+  randomize_worker_hyperparams=false
+
+Formulas:
+  result_diff% = (average_result - 84.29) / 84.29 * 100
+  time_diff%   = (average_total_time_sec - 25.55) / 25.55 * 100
+
+A negative result_diff% means solution quality is BETTER than baseline (shorter distance = better for TSP).
+A positive result_diff% means solution quality is WORSE than baseline.
+A negative time_diff%   means runs FASTER than baseline.
+A positive time_diff%   means runs SLOWER than baseline.
+
+Results:
+----------------------------------------------------------------------------------------------------
+Strategy       Factor   avg_result   avg_time_sec   result_diff%   time_diff%
+----------------------------------------------------------------------------------------------------
+random              2    84.560670          14.74           0.32       -42.31
+random              4    84.007767          18.22          -0.33       -28.69
+random              6    83.578183          21.58          -0.84       -15.54
+random              8    83.320307          24.86          -1.15        -2.70
+random             10    82.782493          28.08          -1.79         9.90
+----------------------------------------------------------------------------------------------------
+topk                2    84.578173          14.57           0.34       -42.97
+topk                4    83.809052          18.05          -0.57       -29.35
+topk                6    83.120354          21.24          -1.39       -16.87
+topk                8    82.887638          25.49          -1.66        -0.23
+topk               10    82.516128          29.39          -2.10        15.03
+----------------------------------------------------------------------------------------------------
+rank                2    83.995026          14.83          -0.35       -41.96
+rank                4    83.869118          18.34          -0.50       -28.22
+----------------------------------------------------------------------------------------------------
+
+Notes:
+- Mục tiêu: result_diff% càng âm càng tốt (kết quả nhỏ hơn baseline), time_diff% càng âm càng tốt (nhanh hơn).
+- random/factor=2 (+0.32%) và topk/factor=2 (+0.34%) kém hơn baseline về chất lượng.
+- Configs có result_diff% âm tốt nhất: topk/factor=10 (-2.10%), random/factor=10 (-1.79%) —
+  nhưng đều chậm hơn baseline (time_diff% dương).
+- Cân bằng tốt nhất: random/factor=8 (-1.15%, -2.70%) và topk/factor=8 (-1.66%, -0.23%).
+- Configs với factor=10 đều chậm hơn baseline (time_diff% dương).
+- rank chỉ có 2 configs (factor=2 và 4) — thư mục chưa có kết quả đầy đủ.

@@ -1,0 +1,10 @@
+data_prefix=200.
+runs=5
+sleep_sec=0.0
+average_result=84.368269
+average_total_time_sec=26.94
+best_result=83.028404
+best_result_data_file=200.
+file_count=16
+best_result_total_time_sec=30.76
+csv_file=/app/sequential-algorithm/rust/statistics/benchmark-200.-20260619-080135.csv

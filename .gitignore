@@ -6,7 +6,7 @@ build/
 outputs/
 # statistics/
 target/
-convergence/
+# convergence/
 
 master-slave/source-code/concept/asynchronous-mpi_openmp
 master-slave/source-code/concept/asynchronous-mpi
