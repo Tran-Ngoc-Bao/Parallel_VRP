@@ -8,3 +8,6 @@ best_result_data_file=100.
 file_count=16
 best_result_total_time_sec=8.39
 csv_file=/app/sequential-algorithm/cpp/statistics/benchmark-100.-20260619-070041.csv
+combined_std_result=0.319962
+combined_std_timing_total_sec=0.531684
+cv_percent=0.260010

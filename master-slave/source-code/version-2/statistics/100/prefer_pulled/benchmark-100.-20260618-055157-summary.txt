@@ -15,3 +15,5 @@ best_result=122.505712
 file_count=16
 best_result_total_time_sec=4.38
 csv_file=/app/master-slave/source-code/version-2/statistics/benchmark-100.-20260618-055157.csv
+combined_std_result=0.804347
+combined_std_timing_total_sec=0.145509
