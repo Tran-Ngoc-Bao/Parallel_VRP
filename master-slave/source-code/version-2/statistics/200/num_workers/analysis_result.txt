@@ -1,11 +1,23 @@
 Num Workers Analysis — 200 cities
-==================================
-Base values used:
-  average_result         baseline = 84.291200  (sequential cpp)
-  average_total_time_sec baseline = 25.55  (sequential cpp)
-  combined_std_result    baseline = 0.558229  (sequential cpp)
+=================================
 
-Common params (same across all files):
+Base values used (sequential cpp baseline):
+  average_result         baseline = 84.2912
+  best_result            baseline = 82.606487
+  average_total_time_sec baseline = 25.55
+  combined_std_result    baseline = 0.558229
+
+Formulas:
+  result_diff% = (average_result - 84.2912) / 84.2912 * 100
+  best_diff%   = (best_result - 82.606487) / 82.606487 * 100
+  time_diff%   = (average_total_time_sec - 25.55) / 25.55 * 100
+  CV%          = combined_std_result / average_result * 100
+  std_diff%    = (combined_std_result - 0.558229) / 0.558229 * 100
+
+A negative result_diff%/best_diff% means BETTER than baseline (shorter = better for TSP).
+A negative time_diff% means FASTER than baseline.
+
+Common params:
   adaptive_iterations=10
   adaptive_pull_elite_segments=4
   elite_pull_strategy=rank
@@ -14,30 +26,17 @@ Common params (same across all files):
   randomize_worker_hyperparams=true
   prefer_pulled=true
 
-Formulas:
-  result_diff% = (average_result - 84.291200) / 84.291200 * 100
-  time_diff%   = (average_total_time_sec - 25.55) / 25.55 * 100
-  CV%          = combined_std_result / average_result * 100
-  std_diff%    = (combined_std_result - 0.558229) / 0.558229 * 100
-
-A negative result_diff% means solution quality is BETTER than baseline (shorter distance = better for TSP).
-A positive result_diff% means solution quality is WORSE than baseline.
-A negative time_diff%   means runs FASTER than baseline.
-A positive time_diff%   means runs SLOWER than baseline.
-
 Results:
-----------------------------------------------------------------------------------------
- num_workers    avg_result       std  avg_time_sec  result_diff%    CV%  time_diff%  std_diff%
-----------------------------------------------------------------------------------------
-           7     83.808212  0.468067         14.81         -0.57   0.56      -42.04     -16.15
-           8     83.954876  0.461410         15.27         -0.40   0.55      -40.23     -17.34
-           9     83.574588  0.531710         16.27         -0.85   0.64      -36.32      -4.75
-          10     83.520574  0.417177         17.33         -0.91   0.50      -32.17     -25.27
-----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+ num_workers    avg_result  best_result       std  avg_time_sec  result_diff%  best_diff%    CV%  time_diff%  std_diff%
+--------------------------------------------------------------------------------------------------------
+           7     83.808212    82.537640  0.468067         14.81         -0.57       -0.08   0.56      -42.04     -16.15
+           8     83.954876    82.526765  0.461410         15.27         -0.40       -0.10   0.55      -40.23     -17.34
+           9     83.574588    82.257334  0.531710         16.27         -0.85       -0.42   0.64      -36.32      -4.75
+          10     83.520574    82.431405  0.417177         17.33         -0.91       -0.21   0.50      -32.17     -25.27
+--------------------------------------------------------------------------------------------------------
 
 Notes:
 - Tất cả configs đều nhanh hơn baseline đáng kể (time_diff% âm mạnh ~42-32%).
 - Tăng num_workers làm tăng thời gian nhẹ: np=7 (14.81s) → np=10 (17.33s).
-- np=10 cho result tốt nhất (-0.92%), np=9 đứng thứ hai (-0.85%).
-- np=8 có CV% thấp nhất (0.55%) — ổn định nhất.
-- Cân bằng tốt nhất: np=10 (result_diff% -0.92%, time_diff% -32.13%).
+- np=9 cho best_result tốt nhất (best_diff% thấp nhất).

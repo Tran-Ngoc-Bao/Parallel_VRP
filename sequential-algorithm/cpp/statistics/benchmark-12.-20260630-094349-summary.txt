@@ -1,0 +1,10 @@
+data_prefix=12.
+runs=5
+sleep_sec=0.0
+average_result=56.165487
+average_total_time_sec=0.08
+best_result=56.165487
+best_result_data_file=12.
+file_count=12
+best_result_total_time_sec=0.08
+csv_file=/app/sequential-algorithm/cpp/statistics/benchmark-12.-20260630-094349.csv

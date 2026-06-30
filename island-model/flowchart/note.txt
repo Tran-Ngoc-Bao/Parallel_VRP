@@ -1,1 +1,14 @@
 I. Ý tưởng
+    - Các island cùng 1 thuật toán
+        Hoặc
+        Có 2-3 thuật toán dùng cho các island
+    - Mỗi island là 1 worker
+        Hoặc
+        Mỗi island có nhiều worker
+            (Mỗi worker chạy 1 phần không gian tìm kiếm
+                Hoặc
+                Mỗi island là 1 mô hình master-slave đã làm)
+    - Số lượng island ?
+        (Số lượng customer; Số lượng worker / island)
+        -> Lựa chọn topology dựa trên số lượng island
+    - Trao đổi giữa các island ?

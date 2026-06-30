@@ -1,0 +1,10 @@
+data_prefix=6.
+runs=5
+sleep_sec=0.0
+average_result=39.070570
+average_total_time_sec=0.03
+best_result=39.070569
+best_result_data_file=6.
+file_count=12
+best_result_total_time_sec=0.03
+csv_file=/app/sequential-algorithm/rust/statistics/benchmark-6.-20260630-102047.csv
