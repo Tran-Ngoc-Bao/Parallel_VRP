@@ -8,3 +8,6 @@ best_result_data_file=10.
 file_count=12
 best_result_total_time_sec=0.05
 csv_file=/app/sequential-algorithm/rust/statistics/benchmark-10.-20260630-102059.csv
+combined_std_result=0.000000
+combined_std_timing_total_sec=0.002749
+cv_percent=0.000000

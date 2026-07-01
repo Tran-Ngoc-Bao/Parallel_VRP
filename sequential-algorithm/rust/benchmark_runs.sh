@@ -78,9 +78,38 @@ BEST_FILE="${DATA_PREFIX}"
     echo "csv_file=${CSV_FILE}"
 } > "${SUMMARY_FILE}"
 
+STD_INFO="$(awk -F, '
+    NR>1 {
+        f=$1; v=$3+0; t=$4+0
+        rsum[f]+=v; rsumsq[f]+=v*v; rcnt[f]++
+        tsum[f]+=t; tsumsq[f]+=t*t
+    }
+    END {
+        n_files=0; sum_rvar=0; sum_tvar=0
+        for (f in rcnt) {
+            n=rcnt[f]; n_files++
+            if (n>1) {
+                sum_rvar += (rsumsq[f] - rsum[f]*rsum[f]/n) / (n-1)
+                sum_tvar += (tsumsq[f] - tsum[f]*tsum[f]/n) / (n-1)
+            }
+        }
+        if (n_files>0) printf "%.6f,%.6f", sqrt(sum_rvar)/n_files, sqrt(sum_tvar)/n_files
+    }' "${CSV_FILE}")"
+
+COMBINED_STD_RESULT="${STD_INFO%%,*}"
+COMBINED_STD_TIME="${STD_INFO#*,}"
+CV_PERCENT="$(awk -v std="${COMBINED_STD_RESULT}" -v avg="${AVG_RESULT}" 'BEGIN {printf "%.6f", (avg+0)>0 ? std/avg*100 : 0}')"
+
+{
+    echo "combined_std_result=${COMBINED_STD_RESULT}"
+    echo "combined_std_timing_total_sec=${COMBINED_STD_TIME}"
+    echo "cv_percent=${CV_PERCENT}"
+} >> "${SUMMARY_FILE}"
+
 echo "Average total time (s): ${AVG_TIME}"
 echo "Average result: ${AVG_RESULT}"
 echo "Best result: ${BEST_RESULT}"
+echo "Combined std result: ${COMBINED_STD_RESULT}  (CV%: ${CV_PERCENT})"
 echo "Saved: ${CSV_FILE}"
 echo "Saved: ${SUMMARY_FILE}"
 
